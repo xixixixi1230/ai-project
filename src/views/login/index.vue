@@ -47,6 +47,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { login } from '@/api/auth'
 
 const router = useRouter()
 
@@ -83,13 +84,16 @@ const handleLogin = async () => {
     // 对输入进行转义处理
     const safeUsername = encodeURIComponent(loginForm.username)
     const safePassword = encodeURIComponent(loginForm.password)
-
-    // 实际的登录API调用
+    // 调用登录 API
+    const response = await login(loginForm.username, loginForm.password)
     console.log('登录请求:', { username: safeUsername, password: safePassword })
 
-    // 模拟登录成功并设置cookie，设置过期时间为1小时
-    const expires = new Date(Date.now() + 3600 * 1000).toUTCString()
-    document.cookie = `authToken=yourAuthToken; path=/; expires=${expires}`
+    // 模拟登录成功并设置cookie，设置过期时间为1天
+    const expires = new Date(Date.now() + 3600 * 24 * 1000).toUTCString()
+    //document.cookie：这是 JavaScript 中用于操作浏览器 cookie 的属性。
+    //path=/：这是 cookie 的路径属性，/ 表示该 cookie 对整个网站的所有路径都有效。
+    //expires=${expires}：这是 cookie 的过期时间属性
+    document.cookie = `authToken=${response.token}; path=/; expires=${expires}`
 
     // 跳转到主页
     router.push('/home')

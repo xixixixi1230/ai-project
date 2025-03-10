@@ -76,14 +76,23 @@ const verificationCode = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 
-const handleRegister = () => {
-  console.log({
+const handleRegister = async () => {
+  try {
+    // 调用注册 API
+    const response = await register(username.value, email.value,verificationCode.value,password.value,confirmPassword.value);
+    console.log({
     username: username.value,
     email: email.value,
     verificationCode: verificationCode.value,
     password: password.value,
     confirmPassword: confirmPassword.value,
   })
+
+    // 跳转到登录
+    router.push('/login')
+  } catch (error) {
+    errorMessage('注册失败，请稍后重试')
+  }
 }
 
 const sendVerificationCode = () => {
