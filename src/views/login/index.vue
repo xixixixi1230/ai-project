@@ -14,6 +14,7 @@
             autocomplete="off"
             @input="validateInput"
             required
+            :class="{ 'is-invalid': usernameError }"
           />
           <label for="username">用户名</label>
           <span class="highlight"></span>
@@ -26,6 +27,7 @@
             autocomplete="off"
             @input="validateInput"
             required
+            :class="{ 'is-invalid': passwordError }"
           />
           <label for="password">密码</label>
           <span class="highlight"></span>
@@ -38,14 +40,20 @@
         <div class="form-footer">
           <span>还没有账号？</span>
           <a href="/register">立即注册</a>
+          <span>&nbsp;&nbsp;| &nbsp;&nbsp;</span>
+          <a href="/forgot-password">忘记密码</a>
         </div>
       </form>
+      <button class="login-btn" @click="handleSSOLogin">
+          <span>SSO登录</span>
+          <i class="arrow-icon"></i>
+        </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted,watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '@/api/auth'
 
@@ -60,6 +68,34 @@ const loginForm = reactive({
 const errorMsg = ref('')
 const isFormValid = ref(false)
 
+//跳转sso
+function handleSSOLogin(){
+  window.location.href="https://www.baidu.com";
+}
+
+// 用户名验证规则
+const validateUsername = () => {
+  const pattern = /^[a-zA-Z0-9]{3,20}$/;
+  if (!username.value) {
+    usernameError.value = '用户名不能为空';
+  } else if (!pattern.test(username.value)) {
+    usernameError.value = '用户名只能包含字母和数字，长度为 3 到 20 个字符';
+  } else {
+    usernameError.value = '';
+  }
+};
+
+// 密码验证规则
+const validatePassword = () => {
+  if (!password.value) {
+    passwordError.value = '密码不能为空';
+  } else if (password.value.length < 6 || password.value.length > 20) {
+    passwordError.value = '密码长度必须为 6 到 20 个字符';
+  } else {
+    passwordError.value = '';
+  }
+};
+
 // 输入验证
 const validateInput = () => {
   // 基本验证
@@ -73,6 +109,11 @@ const validateInput = () => {
 
 // 登录处理
 const handleLogin = async () => {
+  // 检查用户名和密码是否为空
+  if (!loginForm.username || !loginForm.password) {
+    errorMessage('请填写用户名和密码')
+    return
+  }
   // 防止XSS攻击
   const xssPattern = /(~|\{|\}|"|'|<|>|\?)/g
   if (xssPattern.test(loginForm.username) || xssPattern.test(loginForm.password)) {
@@ -210,6 +251,25 @@ onMounted(() => {
   gap: 10px;
 }
 
+.login-btn{
+  width: 100%;
+  padding: 15px;
+  margin-left: 15px;
+  margin-top: 20px;
+  background: linear-gradient(to right, #3498db, #2980b9);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
 .submit-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
@@ -245,6 +305,7 @@ onMounted(() => {
   font-size: 14px;
   text-align: center;
   margin-bottom: 20px;
+  display: block;
 }
 
 @media (max-width: 480px) {

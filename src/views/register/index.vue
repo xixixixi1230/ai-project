@@ -7,14 +7,28 @@
       </div>
       <form @submit.prevent="handleRegister" class="floating-form">
         <div class="input-group">
-          <input type="text" id="username" v-model="username" required maxlength="20" />
+          <input
+            type="text"
+            id="username"
+            v-model="username"
+            required
+            :class="{ 'is-invalid': usernameError }"
+          />
           <label for="username">用户名</label>
           <span class="highlight"></span>
+          <p v-if="usernameError" class="error-message">{{ usernameError }}</p>
         </div>
         <div class="input-group">
-          <input type="email" id="email" v-model="email" required />
+          <input
+            type="email"
+            id="email"
+            v-model="email"
+            required
+            :class="{ 'is-invalid': emailError }"
+          />
           <label for="email">邮箱地址</label>
           <span class="highlight"></span>
+          <p v-if="emailError" class="error-message">{{ emailError }}</p>
         </div>
         <div class="input-group verification-group">
           <input
@@ -23,12 +37,19 @@
             v-model="verificationCode"
             required
             maxlength="6"
+            :class="{ 'is-invalid': verificationCodeError }"
           />
           <label for="verificationCode">验证码</label>
-          <button type="button" @click="sendVerificationCode" class="send-code-btn">
-            获取验证码
+          <button
+            type="button"
+            @click="sendVerificationCode"
+            class="send-code-btn"
+            :disabled="isSendingCode || codeSent"
+          >
+            {{ codeSent? `已发送（${countdown}s）` : '获取验证码' }}
           </button>
           <span class="highlight"></span>
+          <p v-if="verificationCodeError" class="error-message">{{ verificationCodeError }}</p>
         </div>
         <div class="input-group">
           <input
@@ -38,9 +59,11 @@
             required
             minlength="6"
             maxlength="20"
+            :class="{ 'is-invalid': passwordError }"
           />
           <label for="password">密码</label>
           <span class="highlight"></span>
+          <p v-if="passwordError" class="error-message">{{ passwordError }}</p>
         </div>
         <div class="input-group">
           <input
@@ -50,11 +73,13 @@
             required
             minlength="6"
             maxlength="20"
+            :class="{ 'is-invalid': confirmPasswordError }"
           />
           <label for="confirmPassword">确认密码</label>
           <span class="highlight"></span>
+          <p v-if="confirmPasswordError" class="error-message">{{ confirmPasswordError }}</p>
         </div>
-        <button type="submit" class="submit-btn">
+        <button type="submit" class="submit-btn" :disabled="hasErrors">
           <span>立即注册</span>
           <i class="arrow-icon"></i>
         </button>
@@ -68,39 +93,173 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, onMounted,computed  } from 'vue';
+import { useRouter } from 'vue-router'
 
-const username = ref('')
-const email = ref('')
-const verificationCode = ref('')
-const password = ref('')
-const confirmPassword = ref('')
+// 表单数据
+const username = ref('');
+const email = ref('');
+const verificationCode = ref('');
+const password = ref('');
+const confirmPassword = ref('');
 
+// 错误信息
+const usernameError = ref('');
+const emailError = ref('');
+const verificationCodeError = ref('');
+const passwordError = ref('');
+const confirmPasswordError = ref('');
+
+// 验证码相关
+const isSendingCode = ref(false);
+const codeSent = ref(false);
+const countdown = ref(60);
+
+const sendCode = async (email) => {
+  // 模拟发送验证码请求
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve({ success: true });
+    }, 1000);
+  });
+};
+
+const router = useRouter();
+
+// 检查是否有错误
+const hasErrors = computed(() => {
+  return (
+    usernameError.value ||
+    emailError.value ||
+    verificationCodeError.value ||
+    passwordError.value ||
+    confirmPasswordError.value
+  );
+});
+
+// 用户名验证规则
+const validateUsername = () => {
+  const pattern = /^[a-zA-Z0-9]{3,20}$/;
+  if (!username.value) {
+    usernameError.value = '用户名不能为空';
+  } else if (!pattern.test(username.value)) {
+    usernameError.value = '用户名只能包含字母和数字，长度为 3 到 20 个字符';
+  } else {
+    usernameError.value = '';
+  }
+};
+
+// 邮箱验证规则
+const validateEmail = () => {
+  const pattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!email.value) {
+    emailError.value = '邮箱地址不能为空';
+  } else if (!pattern.test(email.value)) {
+    emailError.value = '请输入有效的邮箱地址';
+  } else {
+    emailError.value = '';
+  }
+};
+
+// 验证码验证规则
+const validateVerificationCode = () => {
+  if (!verificationCode.value) {
+    verificationCodeError.value = '验证码不能为空';
+  } else if (verificationCode.value.length!== 6) {
+    verificationCodeError.value = '验证码长度必须为 6 位';
+  } else {
+    verificationCodeError.value = '';
+  }
+};
+
+// 密码验证规则
+const validatePassword = () => {
+  if (!password.value) {
+    passwordError.value = '密码不能为空';
+  } else if (password.value.length < 6 || password.value.length > 20) {
+    passwordError.value = '密码长度必须为 6 到 20 个字符';
+  } else {
+    passwordError.value = '';
+  }
+};
+
+// 确认密码验证规则
+const validateConfirmPassword = () => {
+  if (!confirmPassword.value) {
+    confirmPasswordError.value = '确认密码不能为空';
+  } else if (confirmPassword.value!== password.value) {
+    confirmPasswordError.value = '两次输入的密码不一致';
+  } else {
+    confirmPasswordError.value = '';
+  }
+};
+
+// 发送验证码
+const sendVerificationCode = async () => {
+  console.log('Sending verification code to:', email.value)
+  validateEmail();
+  if (emailError.value) return;
+
+  isSendingCode.value = true;
+  try {
+    await sendCode(email.value);
+    codeSent.value = true;
+    const timer = setInterval(() => {
+      if (countdown.value > 0) {
+        countdown.value--;
+      } else {
+        clearInterval(timer);
+        codeSent.value = false;
+        countdown.value = 60;
+      }
+    }, 1000);
+  } catch (error) {
+    emailError.value = '发送验证码失败，请稍后重试';
+  } finally {
+    isSendingCode.value = false;
+  }
+};
+
+// 注册处理
 const handleRegister = async () => {
+  validateUsername();
+  validateEmail();
+  validateVerificationCode();
+  validatePassword();
+  validateConfirmPassword();
+
+  if (hasErrors.value) return;
+
   try {
     // 调用注册 API
     const response = await register(username.value, email.value,verificationCode.value,password.value,confirmPassword.value);
-    console.log({
-    username: username.value,
-    email: email.value,
-    verificationCode: verificationCode.value,
-    password: password.value,
-    confirmPassword: confirmPassword.value,
-  })
-
+    console.log('注册成功:', response);
     // 跳转到登录
-    router.push('/login')
+    router.push('/login');
   } catch (error) {
-    errorMessage('注册失败，请稍后重试')
+    console.error('注册失败:', error);
+    // 可以添加更详细的错误提示
   }
-}
+};
 
-const sendVerificationCode = () => {
-  console.log('Sending verification code to:', email.value)
-}
+// 监听输入变化，实时验证
+watch(username, validateUsername);
+watch(email, validateEmail);
+watch(verificationCode, validateVerificationCode);
+watch(password, () => {
+  validatePassword();
+  validateConfirmPassword();
+});
+watch(confirmPassword, validateConfirmPassword);
 </script>
 
 <style scoped>
+.error-message {
+  color: red;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
 .register-wrapper {
   min-height: 93.5vh;
   display: flex;
