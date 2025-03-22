@@ -1,363 +1,231 @@
 <template>
-  <!-- 整个页面的容器，使用 Bootstrap 的 container 类来实现响应式布局 -->
   <div class="container">
-    <!-- Bootstrap 的行布局类，用于将其子元素排列成一行 -->
-    <div class="row">
-      <!-- 页面内容的盒子，col-xs-12 表示在超小屏幕设备上占据 12 列（即占满一行） -->
-      <div class="box col-xs-12">
-        <!-- 页面标题部分 -->
-        <div class="title">
-          <!-- 标题文字，居中显示 -->
-          <h2 class="text-center" style="color: #3498db;">
-            <!-- 标题文本 -->
-            数字辅导员
-          </h2>
-        </div>
-        <!-- 聊天回复区域 -->
-        <div class="answer">
-          <!-- 聊天窗口，用于显示聊天消息，通过 ref 绑定到 chatWindowRef 以便在脚本中操作 -->
-          <div id="chatWindow" ref="chatWindowRef">
-            <!-- 循环渲染消息 -->
-            <div v-for="(message, index) in messages" :key="index" class="message-bubble">
-              <div
-                :class="
-                  message.role === 'user' ? 'request-icon chat-icon' : 'response-icon chat-icon'
-                "
-              ></div>
-              <div class="message-text">
-                <div v-html="message.content"></div>
+    <!-- 用户头像 -->
+    <div class="user-avatar" @click="toggleUserInfo">
+      <img src="../../static/images/user.png" alt="User Avatar" />
+    </div>
+    <!-- 用户信息，位置固定在头像下方 -->
+    <div class="user-info" v-if="isUserInfoVisible">
+      <div class="popup-content">
+        <p><strong>ID:</strong> {{ userInfo.id }}</p>
+        <p><strong>邮箱:</strong> {{ userInfo.email }}</p>
+        <p><strong>学校:</strong> {{ userInfo.schoolName }}</p>
+      </div>
+    </div>
+
+    <!-- 左侧菜单栏 -->
+    <div class="sidebar">
+      <h3>对话列表</h3>
+      <hr />
+      <ul>
+        <!-- 新建对话按钮 -->
+        <li class="new-dialog-item">
+          <button class="plain-button" @click="startNewDialog">新建对话</button>
+        </li>
+        <hr />
+        <!-- 对话列表项 -->
+        <li
+          v-for="(dialog, index) in dialogs"
+          :key="index"
+          @click="selectDialog(index)"
+          :class="{ active: selectedDialogIndex === index }"
+        >
+          {{ dialog.name }}
+          <!-- 删除按钮 -->
+          <button @click.stop="deleteDialog(index)">×</button>
+        </li>
+      </ul>
+    </div>
+
+    <!-- 主内容区域 -->
+    <div class="main-content">
+      <div class="row">
+        <div class="box">
+          <div class="title">
+            <h2 class="text-center" style="color: #3498db">数字辅导员</h2>
+          </div>
+          <div class="answer">
+            <div class="tips">
+              <h4 class="text-center">欢迎使用AI思政聊天平台</h4>
+            </div>
+            <div id="chatWindow" ref="chatWindowRef">
+              <div v-for="(message, index) in messages" :key="index" class="message-bubble">
+                <div
+                  :class="
+                    message.role === 'user' ? 'request-icon chat-icon' : 'response-icon chat-icon'
+                  "
+                ></div>
+                <div class="message-text">
+                  <div v-html="message.content"></div>
+                </div>
+              </div>
+            </div>
+            <div class="function">
+              <div class="ipt">
+                <div class="col-xs-12">
+                  <textarea
+                    v-model="inputMessage"
+                    id="chatInput"
+                    class="form-control"
+                    rows="1"
+                  ></textarea>
+                </div>
+                <button
+                  @click="sendMessage"
+                  id="chatBtn"
+                  :class="isRequesting ? 'btn btn-danger' : 'btn btn-primary'"
+                  type="button"
+                >
+                  {{ isRequesting ? 'End' : 'Go!' }}
+                </button>
               </div>
             </div>
           </div>
-          <!-- 功能操作区域，包含设置、输入框等功能 -->
-          <div class="function">
-            <!-- 功能操作区域的上半部分，包含设置、停止、截图和删除等按钮 -->
-            <div class="others">
-              <!-- 左侧设置区域 -->
-              <div class="left">
-                <!-- 设置按钮及其下拉菜单 -->
-                <div class="settings common dropup">
-                  <!-- 设置按钮，点击后触发下拉菜单显示 -->
-                  <a
-                    class="dropdown-toggle icon-style"
-                    id="dropdownMenu"
-                    data-toggle="dropdown"
-                    aria-haspopup="true"
-                    aria-expanded="false"
-                    title="设置"
-                  >
-                    <!-- 设置图标 -->
-                    <i class="fa fa-cogs fa-lg" aria-hidden="true"></i>
-                  </a>
-                  <!-- 下拉菜单内容 -->
-                  <div class="dropdown-menu" style="padding: 0" onclick="event.stopPropagation()">
-                    <!-- 主题设置项 -->
-                    <div class="settings-common">
-                      <!-- 主题设置的标题及图标 -->
-                      <span
-                        ><i class="fa fa fa-linode fa-lg" aria-hidden="true"></i>&nbsp; 主题</span
-                      >
-                      <!-- 主题选择下拉框 -->
-                      <select class="form-control ipt-common theme">
-                        <!-- 可选的主题选项 -->
-                        <option value="light">light</option>
-                        <option value="light-red">light-red</option>
-                        <option value="light-green">light-green</option>
-                        <option value="light-yellow">light-yellow</option>
-                      </select>
-                    </div>
-                    <!-- API 地址设置项 -->
-                    <div class="settings-common">
-                      <!-- API 地址设置的标题及图标 -->
-                      <span
-                        ><i class="fa fa-link fa-lg" aria-hidden="true"></i>&nbsp; api 地址</span
-                      >
-                      <!-- 输入 API 地址的文本框 -->
-                      <input
-                        type="text"
-                        class="form-control ipt-common api-url"
-                        placeholder="可填入中转代理api"
-                      />
-                    </div>
-                    <!-- OpenAI Key 设置项 -->
-                    <div class="settings-common">
-                      <!-- OpenAI Key 设置的标题及图标 -->
-                      <span
-                        ><i class="fa fa-key fa-lg" aria-hidden="true"></i>&nbsp; OpenAI Key</span
-                      >
-                      <!-- 输入 OpenAI Key 的文本框 -->
-                      <input
-                        type="text"
-                        class="form-control ipt-common api-key"
-                        placeholder="可填入api key"
-                      />
-                    </div>
-                    <!-- OpenAI 模型选择项 -->
-                    <div class="settings-common">
-                      <!-- OpenAI 模型选择的标题及图标 -->
-                      <span
-                        ><i class="fa fa-reddit-alien fa-lg" aria-hidden="true"></i>&nbsp; OpenAI
-                        模型</span
-                      >
-                      <!-- 模型选择下拉框 -->
-                      <select class="form-control ipt-common model">
-                        <!-- 可选的模型选项 -->
-                        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-                        <option value="gpt-4">gpt-4</option>
-                        <option value="gpt-4o">gpt-4o</option>
-                        <option value="deepseek-reasoner">deepseek-R1</option>
-                        <option value="deepseek-chat">deepseek-V3</option>
-                      </select>
-                    </div>
-                    <!-- 记录对话内容设置项 -->
-                    <div class="settings-common">
-                      <!-- 记录对话内容设置的标题及图标 -->
-                      <span
-                        ><i class="fa fa-floppy-o fa-lg" aria-hidden="true"></i>&nbsp;
-                        记录对话内容，刷新不会消失</span
-                      >
-                      <!-- 复选框及自定义样式 -->
-                      <div class="chck-btn">
-                        <input id="chck-1" type="checkbox" />
-                        <label for="chck-1" class="check-trail">
-                          <div class="check-handler"></div>
-                        </label>
-                      </div>
-                    </div>
-                    <!-- 开启连续对话设置项 -->
-                    <div class="settings-common">
-                      <!-- 开启连续对话设置的标题及图标 -->
-                      <span
-                        ><i class="fa fa-retweet fa-lg" aria-hidden="true"></i>&nbsp;
-                        开启连续对话，加倍消耗tokens</span
-                      >
-                      <!-- 复选框及自定义样式 -->
-                      <div class="chck-btn">
-                        <input id="chck-2" type="checkbox" />
-                        <label for="chck-2" class="check-trail">
-                          <div class="check-handler"></div>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <!-- 中间停止响应按钮区域 -->
-              <div class="center">
-                <!-- 停止响应按钮 -->
-                <div class="stop common">
-                  <!-- 停止响应按钮链接 -->
-                  <a class="icon-style stop-icon" title="停止响应" style="text-decoration: none">
-                    <!-- 停止图标及文字 -->
-                    <i class="fa fa-stop-circle-o fa-lg" aria-hidden="true"></i> 停止
-                  </a>
-                </div>
-              </div>
-              <!-- 右侧截图和删除历史记录按钮区域 -->
-              <div class="right">
-                <!-- 截图按钮 -->
-                <div class="screenshot common">
-                  <!-- 截图按钮链接 -->
-                  <a class="icon-style" title="截图保存对话">
-                    <!-- 截图图标 -->
-                    <i class="fa fa-file-image-o fa-lg" aria-hidden="true"></i>
-                  </a>
-                </div>
-                <!-- 删除历史记录按钮 -->
-                <div class="delete common">
-                  <!-- 删除历史记录按钮链接 -->
-                  <a class="icon-style" title="删除历史记录">
-                    <!-- 删除图标 -->
-                    <i class="fa fa-trash-o fa-lg" aria-hidden="true"></i>
-                  </a>
-                </div>
-              </div>
-            </div>
-            <!-- 输入区域，包含输入框和发送按钮 -->
-            <div class="ipt">
-              <!-- 输入框所在列 -->
-              <div class="col-xs-12">
-                <!-- 输入框，使用 v-model 双向绑定到 inputMessage 变量 -->
-                <textarea
-                  v-model="inputMessage"
-                  id="chatInput"
-                  class="form-control"
-                  rows="1"
-                ></textarea>
-              </div>
-              <!-- 发送按钮，点击触发 sendMessage 方法 -->
-              <button @click="sendMessage" id="chatBtn" class="btn btn-primary" type="button">
-                Go !
-              </button>
-            </div>
-          </div>
+          <footer class="foot" style="margin-top: 20px">
+            <!-- <p class="lead text-center">祝你大学生活欢乐愉快！</p> -->
+            <p class="lead text-center">
+              <a href="https://cs.nankai.edu.cn/" target="_blank"
+                ><i class="fa fa-link fa-lg" aria-hidden="true"></i>&nbsp; 联系我们</a
+              >
+            </p>
+          </footer>
         </div>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, nextTick } from 'vue'
-import hljs from 'highlight.js'
-import { marked } from 'marked'
-
-// 定义响应式数据，用于存储聊天消息列表
-const messages = ref([])
-// 定义响应式数据，用于存储用户输入的消息
-const inputMessage = ref('')
-// 定义响应式数据，用于表示是否正在发送消息
-const isSending = ref(false)
-// 定义响应式数据，用于引用聊天窗口的 DOM 元素，方便操作滚动等
-const chatWindowRef = ref(null)
-
-// 定义响应式数据，存储当前主题，优先从本地存储中获取，若没有则使用默认值 'light'
-const theme = ref(localStorage.getItem('theme') || 'light')
-// 定义响应式数据，存储当前选择的模型，优先从本地存储中获取，若没有则使用默认值 'default'
-const model = ref(localStorage.getItem('model') || 'default')
-// 定义响应式数据，存储 API 地址，优先从本地存储中获取，若没有则使用默认值 ''
-const apiUrl = ref(localStorage.getItem('apiUrl') || '')
-// 定义响应式数据，存储 API Key，优先从本地存储中获取，若没有则使用默认值 ''
-const apiKey = ref(localStorage.getItem('apiKey') || '')
-// 定义响应式数据，存储是否记录对话内容的状态，优先从本地存储中获取，若没有则使用默认值 false
-const archiveSession = ref(localStorage.getItem('archiveSession') === 'true')
-// 定义响应式数据，存储是否开启连续对话的状态，优先从本地存储中获取，若没有则使用默认值 true
-const continuousDialogue = ref(localStorage.getItem('continuousDialogue') === 'true')
-
-// 初始化 marked 的配置函数
-const setupMarked = () => {
-  const renderer = new marked.Renderer()
-  // 重写 marked 的 list 方法，用于自定义列表的渲染
-  renderer.list = function (body, ordered, start) {
-    const type = ordered ? 'ol' : 'ul'
-    const startAttr = ordered && start ? ` start="${start}"` : ''
-    return `<${type}${startAttr}>\n${body}</${type}>\n`
-  }
-  // 设置 marked 的选项，包括自定义渲染器和代码高亮处理
-  marked.setOptions({
-    renderer,
-    highlight: (code, language) => {
-      const validLanguage = hljs.getLanguage(language) ? language : 'javascript'
-      return hljs.highlight(code, { language: validLanguage }).value
+<script>
+export default {
+  data() {
+    return {
+      isUserInfoVisible: false,
+      inputMessage: '',
+      messages: [],
+      apiUrl: 'http://127.0.0.1:8080/chat',
+      isRequesting: false,
+      abortController: null,
+      userInfo: {
+        id: '123456',
+        email: 'user@example.com',
+        conversationId: '0',
+        schoolName: '南开大学',
+      },
+      dialogs: [],
+      selectedDialogIndex: -1,
+    }
+  },
+  methods: {
+    toggleUserInfo() {
+      this.isUserInfoVisible = !this.isUserInfoVisible
     },
-  })
+    async sendMessage() {
+      if (this.isRequesting) {
+        console.log('结束对话...')
+        this.isRequesting = false
+        this.abortController.abort()
+        this.messages.push({ role: 'system', content: '对话已终止。' })
+        this.scrollToBottom()
+        return
+      }
+
+      const userMessage = this.inputMessage.trim()
+      if (userMessage === '') return
+
+      this.isRequesting = true
+      this.abortController = new AbortController()
+      const signal = this.abortController.signal
+
+      this.messages.push({ role: 'user', content: userMessage })
+      this.inputMessage = ''
+      this.scrollToBottom()
+      // 如果是第一个消息，创建对话并命名
+      if (this.messages.length === 1) {
+        console.log('1111111')
+        this.createDialog(userMessage)
+      }
+
+      try {
+        const response = await fetch(this.apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: signal,
+          body: JSON.stringify({
+            userId: this.userInfo.id,
+            conversationId: this.userInfo.conversationId,
+            schoolName: this.userInfo.schoolName,
+            content: userMessage,
+          }),
+        })
+
+        if (!response.ok) throw new Error(`请求失败，状态码：${response.status}`)
+
+        const data = await response.json()
+        const answer = data?.data?.answer || 'AI 没有返回消息'
+        this.userInfo.conversationId = data?.data?.conversationId
+        this.messages.push({ role: 'bot', content: answer })
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log('请求被取消')
+        } else {
+          console.error('API 请求失败:', error)
+          this.messages.push({ role: 'bot', content: '服务器错误，请稍后再试！' })
+        }
+      }
+
+      this.isRequesting = false
+      this.scrollToBottom()
+    },
+    scrollToBottom() {
+      this.$nextTick(() => {
+        const chatWindow = this.$refs.chatWindowRef
+        chatWindow.scrollTop = chatWindow.scrollHeight
+      })
+    },
+    handleKeyPress(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault()
+        this.sendMessage()
+      }
+    },
+    startNewDialog() {
+      this.messages = []
+      this.userInfo.conversationId = '0'
+      this.selectedDialogIndex = -1
+    },
+    createDialog(name) {
+      const newDialog = {
+        name: name.length > 10 ? name.substring(0, 10) + '...' : name,
+        messages: this.messages,
+        conversationId: this.userInfo.conversationId,
+      }
+      this.dialogs.push(newDialog)
+      this.selectedDialogIndex = this.dialogs.length - 1
+    },
+    selectDialog(index) {
+      this.selectedDialogIndex = index
+      this.messages = this.dialogs[index].messages
+      this.userInfo.conversationId = this.dialogs[index].conversationId
+    },
+    deleteDialog(index) {
+      this.dialogs.splice(index, 1)
+      if (this.selectedDialogIndex >= this.dialogs.length) {
+        this.selectedDialogIndex = this.dialogs.length - 1
+      }
+      if (this.dialogs.length === 0) {
+        this.startNewDialog()
+      } else {
+        this.selectDialog(this.selectedDialogIndex)
+      }
+    },
+  },
+  mounted() {
+    document.getElementById('chatInput').addEventListener('keydown', this.handleKeyPress)
+  },
+  beforeUnmount() {
+    document.getElementById('chatInput').removeEventListener('keydown', this.handleKeyPress)
+  },
 }
-
-// 转义 HTML 字符串的函数，防止恶意代码注入或错误渲染
-const escapeHtml = (html) => {
-  const text = document.createTextNode(html)
-  const div = document.createElement('div')
-  div.appendChild(text)
-  return div.innerHTML
-}
-
-// 添加用户请求消息到消息列表的函数
-const addRequestMessage = (message) => {
-    console.log(message)
-  messages.value.push({ role: 'user', content: escapeHtml(message) })
-  messages.value.push({
-    role: 'assistant',
-    content: '<span class="loading-icon"><i class="fa fa-spinner fa-pulse fa-2x"></i></span>',
-  })
-  console.log(messages.value);
-  // 调用滚动到聊天窗口底部的函数，确保新消息可见
-  scrollToBottom()
-}
-
-// 添加响应消息到消息列表的函数，更新最后一条消息的内容
-const addResponseMessage = (message) => {
-  const lastMessage = messages.value[messages.value.length - 1]
-  console.log(lastMessage);
-  lastMessage.content = marked.parse(message)
-  console.log(lastMessage.content);
-  
-  // 调用滚动到聊天窗口底部的函数，确保新消息可见
-  scrollToBottom()
-}
-
-// 添加失败消息到消息列表的函数，更新最后一条消息的内容并移除用户输入消息（如果失败）
-const addFailMessage = (message) => {
-  const lastMessage = messages.value[messages.value.length - 1]
-  lastMessage.content = `<p class="error">${message}</p>`
-  messages.value.pop()
-  // 调用滚动到聊天窗口底部的函数，确保新消息可见
-  scrollToBottom()
-}
-
-// 发送消息的函数，处理用户输入并模拟机器人回复
-const sendMessage = () => {
-  if (inputMessage.value.trim() === '') return
-  isSending.value = true
-  addRequestMessage(inputMessage.value)
-
-  // 模拟延迟回复
-  setTimeout(() => {
-    const response = '这是机器人的回答'
-    addResponseMessage(response)
-    // messages.value.push({ role: 'assistant', content: response })
-    console.log(messages.value)
-
-    if (archiveSession.value) {
-      localStorage.setItem('session', JSON.stringify(messages.value))
-    }
-    isSending.value = false
-  }, 1000)
-
-  inputMessage.value = ''
-}
-
-// 滚动到聊天窗口底部的函数，使用 nextTick 确保 DOM 更新后执行滚动操作
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (chatWindowRef.value) {
-      chatWindowRef.value.scrollTop = chatWindowRef.value.scrollHeight
-    }
-  })
-}
-
-// 加载历史会话的函数，从本地存储中读取并设置消息列表
-const loadSession = () => {
-  if (archiveSession.value) {
-    const session = localStorage.getItem('session')
-    if (session) {
-      messages.value = JSON.parse(session)
-    }
-  }
-}
-
-// 设置事件监听器的函数，包括窗口 resize 事件来调整下拉菜单宽度
-const setupEventListeners = () => {
-  window.addEventListener('resize', setDropdownWidth)
-  setDropdownWidth()
-}
-
-// 设置下拉菜单宽度的函数，使其宽度与父元素宽度一致
-const setDropdownWidth = () => {
-  const othersElement = document.querySelector('.function.others')
-  if (othersElement) {
-    const width = othersElement.offsetWidth
-    document.querySelector('.function.settings.dropdown-menu').style.width = `${width}px`
-    window.addEventListener('resize', setDropdownWidth)
-  }
-}
-
-// 生命周期钩子函数，在组件挂载后执行初始化操作
-onMounted(() => {
-  setupMarked()
-  loadSession()
-  nextTick(() => {
-    setupEventListeners()
-  })
-
-//   渲染历史消息
-  messages.value.forEach((message) => {
-    if (message.role === 'user') {
-      addRequestMessage(message.content)
-    } else if (message.role === 'assistant') {
-      addResponseMessage(message.content)
-    }
-  })
-})
 </script>
 
 <style scoped>
@@ -365,86 +233,16 @@ onMounted(() => {
 @import url('../../static/font-awesome/css/font-awesome.min.css');
 @import url('../../static/css/github-dark-dimmed.min.css');
 
-:root[bg-theme='light'] {
-  --bg-color: white;
-}
-
-:root[bg-theme='gray'] {
-  --bg-color: #42424670;
-}
-
-:root[bg-theme='light-red'] {
-  --bg-color: #eda8a8;
-}
-
-:root[bg-theme='light-blue'] {
-  --bg-color: #55609a;
-}
-
-:root[bg-theme='light-purple'] {
-  --bg-color: #c09ff9;
-}
-
-:root[bg-theme='light-green'] {
-  --bg-color: #91ecd1;
-}
-
-:root[bg-theme='light-yellow'] {
-  --bg-color: #e9e097;
-}
-
 body {
   background-color: var(--bg-color);
-}
-
-@media screen and (max-width: 768px) {
-  .container {
-    width: 100% !important;
-  }
-  .answer {
-    height: calc(100vh - 145px) !important;
-  }
-  .answer .others .common .settings-common span {
-    font-size: 85%;
-  }
-  .foot p:first-child {
-    font-size: 14px !important;
-  }
-  .foot p a {
-    font-size: 13px !important;
-  }
-}
-
-@media screen and (min-width: 1200px) {
-  .container {
-    width: 970px !important;
-  }
-}
-
-@media screen and (min-width: 768px) {
-  #chatWindow::-webkit-scrollbar {
-    width: 3px;
-  }
-
-  #chatWindow::-webkit-scrollbar-track {
-    background-color: #f1f1f1;
-  }
-
-  #chatWindow::-webkit-scrollbar-thumb {
-    background-color: #888;
-    border-radius: 4px;
-  }
-}
-
-* {
-  margin: 0;
-  padding: 0;
 }
 
 html,
 body {
   height: 100%;
   width: 100%;
+  background-color: #f7f7f7;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .form-control {
@@ -458,18 +256,6 @@ pre {
   background: #2b2a2a;
 }
 
-.copy-btn {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  padding: 5px 10px;
-  border: none;
-  border-radius: 4px;
-  background-color: #686666;
-  color: #e2dfea;
-  cursor: pointer;
-}
-
 .title {
   width: 100%;
 }
@@ -479,10 +265,65 @@ pre {
   color: #4aa593;
 }
 
+.user-avatar {
+  position: fixed;
+  top: 30px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 10;
+  border: 3px solid #3498db;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-info {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 250px;
+  padding: 15px;
+  background-color: white;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  cursor: pointer;
+}
+
+.popup-content h4 {
+  margin-bottom: 10px;
+}
+
+.popup-content p {
+  margin-bottom: 8px;
+}
+
+.row {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  padding: 10px;
+}
+
 .answer {
   width: 100%;
   position: relative;
   height: calc(100vh - 165px);
+}
+
+.answer .function {
+  padding: 0 15px;
+  width: 100%;
+  position: absolute;
+  bottom: 0px;
 }
 
 .answer .tips {
@@ -494,166 +335,7 @@ pre {
 }
 
 .answer .tips h4 {
-  color: red;
-}
-
-.answer .tips img {
-  margin-top: 30px;
-  width: 250px;
-}
-
-.answer .function {
-  padding: 0 15px;
-  width: 100%;
-  position: absolute;
-  bottom: 0px;
-}
-.answer .others {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 15px;
-  height: 30px;
-  margin-bottom: 10px;
-}
-
-.answer .others .left,
-.right {
-  display: flex;
-}
-
-.answer .others .center {
-  display: none;
-}
-
-.answer .others .common {
-  width: 30px;
-  height: 30px;
-  display: flex;
-}
-
-.answer .others .common .settings-common {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 15px;
-  background-color: #fff;
-  border-bottom: 1px solid #ddd;
-}
-
-.answer .others .common .settings-common:hover {
-  background-color: rgba(148, 163, 184, 0.2);
-}
-
-.answer .others .common .settings-common:last-child {
-  border-bottom: 0;
-}
-
-.answer .others .common .settings-common .ipt-common {
-  width: 60%;
-  opacity: 0.8;
-}
-
-.answer .others .common .settings-common span {
-  color: #3498db;
-  cursor: default;
-}
-.answer .others .common .settings-common a {
-  font-size: 14px;
-  color: #3498db;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-/* 按钮样式 */
-.chck-btn {
-  display: flex;
-  justify-content: center;
-  width: 60px;
-  height: 34px;
-}
-
-/* Hide the input */
-input[type='checkbox'] {
-  position: absolute;
-  opacity: 0;
-  z-index: -1;
-}
-
-.check-trail {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  height: 100%;
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 15px;
-  transition: all 0.5s ease;
-  cursor: pointer;
-}
-
-.check-handler {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 34px;
-  height: 34px;
-  background: rgb(148 163 184 / 85%);
-  border-radius: 50%;
-  transition: all 0.5s ease;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
-}
-
-.check-handler:before {
-  content: '×';
-  color: white;
-  font-weight: bold;
-}
-
-input[type='checkbox']:checked + .check-trail {
-  background: #3498dba3;
-}
-input[type='checkbox']:checked + .check-trail .check-handler {
-  margin-left: 26px;
-  background: #3498db;
-}
-input[type='checkbox']:checked + .check-trail .check-handler::before {
-  content: '✔';
-}
-
-.answer .others .center .stop {
-  border: 1px solid rgba(241, 41, 11, 0.8);
-  border-radius: 5px;
-  opacity: 0.8;
-  width: 60px;
-  background-color: rgba(179, 46, 26, 0.1);
-  overflow: hidden;
-}
-
-.answer .others .center .stop .stop-icon {
-  width: 100%;
-  color: red;
-  opacity: 0.8;
-}
-
-.answer .others .center .stop .stop-icon:hover {
-  background-color: rgb(214, 168, 168, 0.2);
-}
-
-.answer .others .right .screenshot {
-  margin-right: 10px;
-}
-
-.answer .others .icon-style {
-  width: 30px;
-  height: 30px;
-  line-height: 30px;
-  text-align: center;
-  color: #3498db;
-  cursor: pointer;
-}
-
-.answer .others .icon-style:hover {
-  background-color: rgba(26, 179, 148, 0.1);
+  color: rgb(0, 132, 255);
 }
 
 .answer .ipt {
@@ -661,16 +343,19 @@ input[type='checkbox']:checked + .check-trail .check-handler::before {
   align-items: center;
   padding-right: 15px;
   border-radius: 10px;
-  height: 50px;
+  height: 70px;
   border: 1px solid #3498db;
   box-shadow: 0px 0px 10px 0px rgba(26, 179, 148, 0.2);
 }
+
 .answer .ipt textarea {
   resize: none;
   overflow-y: auto;
   border: none;
   box-shadow: none;
+  font-size: 24px;
 }
+
 .answer .ipt textarea:focus {
   border: none !important;
   box-shadow: none !important;
@@ -688,33 +373,20 @@ input[type='checkbox']:checked + .check-trail .check-handler::before {
   margin: 10px;
   display: flex;
   align-items: flex-start;
+  align-items: center;
   border-bottom: 1px dashed #e7eaec;
 }
 
 .message-bubble .message-text {
   width: auto;
   max-width: calc(100% - 45px);
-  font-size: 18px;
+  font-size: 24px;
   margin-left: 15px;
   word-break: break-all;
 }
 
 .message-bubble .message-text p {
   white-space: pre-wrap;
-}
-
-.message-bubble .response ol,
-ul {
-  padding-left: 2em;
-}
-
-/* 错误信息样式 */
-.message-bubble .message-text p.error {
-  color: red;
-  height: auto;
-  display: block;
-  white-space: normal;
-  word-break: break-all;
 }
 
 .message-bubble .chat-icon {
@@ -724,23 +396,25 @@ ul {
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
+  background-size: contain;
 }
 
 .message-bubble .request-icon {
-  background-image: url(../images/avatar.png);
+  background-image: url(../../static/images/user.png);
 }
 
 .message-bubble .response-icon {
-  background-image: url(../images/chatgpt.png);
-}
-
-.message-bubble .response .loading-icon {
-  color: #3498db;
+  background-image: url(../../static/images/robot.png);
 }
 
 .answer #chatBtn {
   background-color: #3498db;
   border-color: #3498db;
+}
+
+.answer #chatBtn.btn-danger {
+  background-color: red !important;
+  border-color: red !important;
 }
 
 .answer #chatBtn:focus {
@@ -759,12 +433,137 @@ ul {
 .foot p a {
   margin-right: 10px;
   font-weight: 400;
-  font-size: 14px;
+  font-size: 18px;
   color: #3498db;
   text-decoration: none;
 }
 
 .dropdown-menu {
   border: 0 !important;
+}
+
+/* 新增样式 */
+.container {
+  display: flex;
+  width: 90%; /* 确保容器占满全宽 */
+  justify-content: flex-start; /* 水平左对齐 */
+}
+
+.sidebar {
+  left: 20px; /* 靠近左侧 */
+  width: 15%; /* 占据屏幕宽度的20% */
+  background-color: #f8f9fa;
+  padding: 20px;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  position: relative; /* 确保子元素的定位相对于sidebar */
+}
+
+.sidebar h3 {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.sidebar ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.sidebar li {
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 40px; /* 设置固定高度 */
+}
+
+.sidebar li:hover {
+  background-color: #e9ecef;
+}
+
+.sidebar li.active {
+  background-color: #e9ecef; /* 暗灰色 */
+  color: black;
+}
+
+.sidebar li button {
+  margin-left: 10px;
+  padding: 5px 10px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.sidebar li button:hover {
+  background-color: #c82333;
+}
+
+.sidebar .new-dialog-item {
+  padding: 0; /* 移除内边距 */
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 40px; /* 设置固定高度 */
+  width: 100%; /* 确保宽度占满整个li */
+}
+
+.sidebar .new-dialog-item button {
+  display: block; /* 设置为块级元素 */
+  width: 100%; /* 占满整个li */
+  height: 100%; /* 占满整个li */
+  padding: 0; /* 取消内边距 */
+  background-color: transparent; /* 取消背景颜色 */
+  border: none; /* 取消边框 */
+  color: #3498db; /* 设置文字颜色 */
+  cursor: pointer;
+  transition: color 0.3s; /* 添加颜色过渡效果 */
+  font-size: 20px;
+  text-align: center; /* 文字居中 */
+}
+
+.sidebar .new-dialog-item button:hover {
+  background-color: #e9ecef;
+}
+
+.sidebar .new-dialog-item:active {
+  background-color: #e9ecef; /* 暗灰色 */
+}
+
+/* 删除按钮样式 */
+.sidebar .delete-button {
+  background-color: transparent;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  font-size: 20px;
+  transition: color 0.3s;
+}
+
+.sidebar .delete-button:hover {
+  color: #c82333;
+}
+
+.main-content {
+  flex: 1; /* 占据剩余的宽度 */
+  padding: 20px;
+  margin-left: 20px; /* 确保与sidebar有一定的间距 */
+}
+
+.main-content .row {
+  width: 100%;
+  height: 100%;
+}
+
+.main-content .box {
+  width: 100%;
+  height: 100%;
 }
 </style>
