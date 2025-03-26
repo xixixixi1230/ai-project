@@ -3,7 +3,6 @@
     <div class="register-container">
       <div class="form-header">
         <h2>创建账号</h2>
-        <p>开启您的美好旅程</p>
       </div>
       <form @submit.prevent="handleRegister" class="floating-form">
         <div class="input-group">
@@ -15,8 +14,18 @@
             :class="{ 'is-invalid': usernameError }"
           />
           <label for="username">用户名</label>
-          <span class="highlight"></span>
           <p v-if="usernameError" class="error-message">{{ usernameError }}</p>
+        </div>
+        <div class="input-group">
+          <input
+            type="tel"
+            id="phone"
+            v-model="phone"
+            required
+            :class="{ 'is-invalid': phoneError }"
+          />
+          <label for="phone">手机号</label>
+          <p v-if="phoneError" class="error-message">{{ phoneError }}</p>
         </div>
         <div class="input-group">
           <input
@@ -27,29 +36,18 @@
             :class="{ 'is-invalid': emailError }"
           />
           <label for="email">邮箱地址</label>
-          <span class="highlight"></span>
           <p v-if="emailError" class="error-message">{{ emailError }}</p>
         </div>
-        <div class="input-group verification-group">
+        <div class="input-group">
           <input
             type="text"
-            id="verificationCode"
-            v-model="verificationCode"
+            id="school"
+            v-model="school"
             required
-            maxlength="6"
-            :class="{ 'is-invalid': verificationCodeError }"
+            :class="{ 'is-invalid': schoolError }"
           />
-          <label for="verificationCode">验证码</label>
-          <button
-            type="button"
-            @click="sendVerificationCode"
-            class="send-code-btn"
-            :disabled="isSendingCode || codeSent"
-          >
-            {{ codeSent? `已发送（${countdown}s）` : '获取验证码' }}
-          </button>
-          <span class="highlight"></span>
-          <p v-if="verificationCodeError" class="error-message">{{ verificationCodeError }}</p>
+          <label for="school">学校</label>
+          <p v-if="schoolError" class="error-message">{{ schoolError }}</p>
         </div>
         <div class="input-group">
           <input
@@ -62,7 +60,6 @@
             :class="{ 'is-invalid': passwordError }"
           />
           <label for="password">密码</label>
-          <span class="highlight"></span>
           <p v-if="passwordError" class="error-message">{{ passwordError }}</p>
         </div>
         <div class="input-group">
@@ -76,12 +73,10 @@
             :class="{ 'is-invalid': confirmPasswordError }"
           />
           <label for="confirmPassword">确认密码</label>
-          <span class="highlight"></span>
           <p v-if="confirmPasswordError" class="error-message">{{ confirmPasswordError }}</p>
         </div>
-        <button type="submit" class="submit-btn" :disabled="hasErrors">
+        <button type="submit" class="submit-btn">
           <span>立即注册</span>
-          <i class="arrow-icon"></i>
         </button>
         <div class="form-footer">
           <span>已有账号？</span>
@@ -93,164 +88,131 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted,computed  } from 'vue';
+import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 
-// 表单数据
-const username = ref('');
-const email = ref('');
-const verificationCode = ref('');
-const password = ref('');
-const confirmPassword = ref('');
+const username = ref('')
+const phone = ref('')
+const email = ref('')
+const school = ref('')
+const password = ref('')
+const confirmPassword = ref('')
 
-// 错误信息
-const usernameError = ref('');
-const emailError = ref('');
-const verificationCodeError = ref('');
-const passwordError = ref('');
-const confirmPasswordError = ref('');
+const usernameError = ref('')
+const phoneError = ref('')
+const emailError = ref('')
+const schoolError = ref('')
+const passwordError = ref('')
+const confirmPasswordError = ref('')
 
-// 验证码相关
-const isSendingCode = ref(false);
-const codeSent = ref(false);
-const countdown = ref(60);
+const router = useRouter()
 
-const sendCode = async (email) => {
-  // 模拟发送验证码请求
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      resolve({ success: true });
-    }, 1000);
-  });
-};
-
-const router = useRouter();
-
-// 检查是否有错误
 const hasErrors = computed(() => {
   return (
     usernameError.value ||
+    phoneError.value ||
     emailError.value ||
-    verificationCodeError.value ||
+    schoolError.value ||
     passwordError.value ||
     confirmPasswordError.value
-  );
-});
+  )
+})
 
-// 用户名验证规则
 const validateUsername = () => {
-  const pattern = /^[a-zA-Z0-9]{3,20}$/;
-  if (!username.value) {
-    usernameError.value = '用户名不能为空';
-  } else if (!pattern.test(username.value)) {
-    usernameError.value = '用户名只能包含字母和数字，长度为 3 到 20 个字符';
-  } else {
-    usernameError.value = '';
-  }
-};
+  const pattern = /^[a-zA-Z0-9]{3,20}$/
+  usernameError.value = !username.value
+    ? '用户名不能为空'
+    : !pattern.test(username.value)
+      ? '用户名只能包含字母和数字，长度为 3 到 20 个字符'
+      : ''
+}
 
-// 邮箱验证规则
+const validatePhone = () => {
+  const pattern = /^1[3-9]\d{9}$/
+  phoneError.value = !phone.value
+    ? '手机号不能为空'
+    : !pattern.test(phone.value)
+      ? '请输入有效的手机号'
+      : ''
+}
+
 const validateEmail = () => {
-  const pattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  if (!email.value) {
-    emailError.value = '邮箱地址不能为空';
-  } else if (!pattern.test(email.value)) {
-    emailError.value = '请输入有效的邮箱地址';
-  } else {
-    emailError.value = '';
-  }
-};
+  const pattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  emailError.value = !email.value
+    ? '邮箱地址不能为空'
+    : !pattern.test(email.value)
+      ? '请输入有效的邮箱地址'
+      : ''
+}
 
-// 验证码验证规则
-const validateVerificationCode = () => {
-  if (!verificationCode.value) {
-    verificationCodeError.value = '验证码不能为空';
-  } else if (verificationCode.value.length!== 6) {
-    verificationCodeError.value = '验证码长度必须为 6 位';
-  } else {
-    verificationCodeError.value = '';
-  }
-};
+const validateSchool = () => {
+  schoolError.value = !school.value ? '学校不能为空' : ''
+}
 
-// 密码验证规则
 const validatePassword = () => {
-  if (!password.value) {
-    passwordError.value = '密码不能为空';
-  } else if (password.value.length < 6 || password.value.length > 20) {
-    passwordError.value = '密码长度必须为 6 到 20 个字符';
-  } else {
-    passwordError.value = '';
-  }
-};
+  passwordError.value = !password.value
+    ? '密码不能为空'
+    : password.value.length < 6 || password.value.length > 20
+      ? '密码长度必须为 6 到 20 个字符'
+      : ''
+}
 
-// 确认密码验证规则
 const validateConfirmPassword = () => {
-  if (!confirmPassword.value) {
-    confirmPasswordError.value = '确认密码不能为空';
-  } else if (confirmPassword.value!== password.value) {
-    confirmPasswordError.value = '两次输入的密码不一致';
-  } else {
-    confirmPasswordError.value = '';
-  }
-};
+  confirmPasswordError.value = !confirmPassword.value
+    ? '确认密码不能为空'
+    : confirmPassword.value !== password.value
+      ? '两次输入的密码不一致'
+      : ''
+}
 
-// 发送验证码
-const sendVerificationCode = async () => {
-  console.log('Sending verification code to:', email.value)
-  validateEmail();
-  if (emailError.value) return;
-
-  isSendingCode.value = true;
-  try {
-    await sendCode(email.value);
-    codeSent.value = true;
-    const timer = setInterval(() => {
-      if (countdown.value > 0) {
-        countdown.value--;
-      } else {
-        clearInterval(timer);
-        codeSent.value = false;
-        countdown.value = 60;
-      }
-    }, 1000);
-  } catch (error) {
-    emailError.value = '发送验证码失败，请稍后重试';
-  } finally {
-    isSendingCode.value = false;
-  }
-};
-
-// 注册处理
 const handleRegister = async () => {
-  validateUsername();
-  validateEmail();
-  validateVerificationCode();
-  validatePassword();
-  validateConfirmPassword();
+  console.log('提交注册...') // 这里检查是否触发
+  validateUsername()
+  validatePhone()
+  validateEmail()
+  validateSchool()
+  validatePassword()
+  validateConfirmPassword()
+  console.log('表单验证完成') // 这里检查是否通过验证
 
-  if (hasErrors.value) return;
+  if (hasErrors.value) return
 
   try {
-    // 调用注册 API
-    const response = await register(username.value, email.value,verificationCode.value,password.value,confirmPassword.value);
-    console.log('注册成功:', response);
-    // 跳转到登录
-    router.push('/login');
-  } catch (error) {
-    console.error('注册失败:', error);
-    // 可以添加更详细的错误提示
-  }
-};
+    const response = await fetch('https://38cr3ii47631.vicp.fun/user/register/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userName: username.value,
+        phone: phone.value,
+        email: email.value,
+        school: school.value,
+        password: password.value,
+      }),
+    })
 
-// 监听输入变化，实时验证
-watch(username, validateUsername);
-watch(email, validateEmail);
-watch(verificationCode, validateVerificationCode);
+    const result = await response.json()
+    if (result.status === 200) {
+      console.log('注册成功:', result.message)
+      router.push('/login')
+    } else {
+      console.error('注册失败:', result.message)
+      alert('注册失败: 改手机已经注册')
+    }
+  } catch (error) {
+    console.error('注册请求失败:', error)
+    alert('注册请求失败')
+  }
+}
+
+watch(username, validateUsername)
+watch(phone, validatePhone)
+watch(email, validateEmail)
+watch(school, validateSchool)
 watch(password, () => {
-  validatePassword();
-  validateConfirmPassword();
-});
-watch(confirmPassword, validateConfirmPassword);
+  validatePassword()
+  validateConfirmPassword()
+})
+watch(confirmPassword, validateConfirmPassword)
 </script>
 
 <style scoped>

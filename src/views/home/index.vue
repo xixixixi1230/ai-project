@@ -7,35 +7,15 @@
     <!-- 用户信息，位置固定在头像下方 -->
     <div class="user-info" v-if="isUserInfoVisible">
       <div class="popup-content">
-        <p><strong>ID:</strong> {{ userInfo.id }}</p>
+        <p><strong>名称:</strong> {{ userInfo.name }}</p>
+        <p><strong>ID :</strong> {{ userInfo.id }}</p>
         <p><strong>邮箱:</strong> {{ userInfo.email }}</p>
         <p><strong>学校:</strong> {{ userInfo.schoolName }}</p>
+        <button class="logout-btn" @click="logout">退出登录</button>
       </div>
     </div>
 
     <!-- 左侧菜单栏 -->
-    <div class="sidebar">
-      <h3>对话列表</h3>
-      <hr />
-      <ul>
-        <!-- 新建对话按钮 -->
-        <li class="new-dialog-item">
-          <button class="plain-button" @click="startNewDialog">新建对话</button>
-        </li>
-        <hr />
-        <!-- 对话列表项 -->
-        <li
-          v-for="(dialog, index) in dialogs"
-          :key="index"
-          @click="selectDialog(index)"
-          :class="{ active: selectedDialogIndex === index }"
-        >
-          {{ dialog.name }}
-          <!-- 删除按钮 -->
-          <button @click.stop="deleteDialog(index)">×</button>
-        </li>
-      </ul>
-    </div>
 
     <!-- 主内容区域 -->
     <div class="main-content">
@@ -103,12 +83,14 @@ export default {
       inputMessage: '',
       messages: [],
       apiUrl: 'http://127.0.0.1:8080/chat',
+      apiUrlconversion: 'http://127.0.0.1:8080/conversation',
       isRequesting: false,
       abortController: null,
       userInfo: {
+        name: '用户',
         id: '123456',
         email: 'user@example.com',
-        conversationId: '0',
+        // conversationId: '0',
         schoolName: '南开大学',
       },
       dialogs: [],
@@ -116,9 +98,69 @@ export default {
     }
   },
   methods: {
+    logout() {
+      localStorage.removeItem('userInfo') // 清除用户信息
+      this.$router.push('/login') // 跳转到登录页面
+    },
     toggleUserInfo() {
       this.isUserInfoVisible = !this.isUserInfoVisible
     },
+
+    loadUserInfo() {
+      // 从 localStorage 中读取用户信息
+      const storedUserInfo = JSON.parse(localStorage.getItem('userInfo'))
+
+      // 如果用户信息存在，将其存储到 data 中
+      if (storedUserInfo) {
+        this.userInfo.name = storedUserInfo.userName
+        this.userInfo.id = storedUserInfo.userId
+        this.userInfo.email = storedUserInfo.email
+        this.userInfo.schoolName = storedUserInfo.school
+      }
+    },
+
+    // 从 localStorage 中加载用户信息
+    async loadChatHistory() {
+      try {
+        const response = await fetch(this.apiUrlconversion, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: this.userInfo.id,
+          }),
+        })
+
+        const data = await response.json()
+        console.log('加载聊天记录成功:', data?.data)
+
+        if (data?.code === 200 && Array.isArray(data?.data) && data?.data.length > 0) {
+          const chatHistory = []
+
+          // 遍历每个会话
+          data.data.forEach((conversation) => {
+            // 遍历每个消息
+            conversation.message.forEach((item) => {
+              if (item.content) {
+                // 仅在消息内容存在时才添加
+                chatHistory.push({
+                  role: item.role === 'assistant' ? 'bot' : item.role, // 如果是 assistant，就替换成 bot
+                  content: item.content, // 消息内容
+                })
+              }
+            })
+          })
+
+          this.messages = chatHistory
+        } else {
+          console.error('没有找到有效的聊天记录数据')
+        }
+      } catch (error) {
+        console.error('加载聊天记录失败:', error)
+      }
+    },
+
     async sendMessage() {
       if (this.isRequesting) {
         console.log('结束对话...')
@@ -140,10 +182,10 @@ export default {
       this.inputMessage = ''
       this.scrollToBottom()
       // 如果是第一个消息，创建对话并命名
-      if (this.messages.length === 1) {
-        console.log('1111111')
-        this.createDialog(userMessage)
-      }
+      // if (this.messages.length === 1) {
+      //   console.log('1111111')
+      //   this.createDialog(userMessage)
+      // }
 
       try {
         const response = await fetch(this.apiUrl, {
@@ -152,7 +194,7 @@ export default {
           signal: signal,
           body: JSON.stringify({
             userId: this.userInfo.id,
-            conversationId: this.userInfo.conversationId,
+            // conversationId: this.userInfo.conversationId,
             schoolName: this.userInfo.schoolName,
             content: userMessage,
           }),
@@ -163,7 +205,13 @@ export default {
         const data = await response.json()
         const answer = data?.data?.answer || 'AI 没有返回消息'
         this.userInfo.conversationId = data?.data?.conversationId
-        this.messages.push({ role: 'bot', content: answer })
+        const sourse = data?.data?.verbose[0]?.meta?.document?.name || '无'
+
+        // 检查 sourse 是否不是 '无'，如果是，则拼接 answer 和 sourse
+        const messageContent = sourse !== '无' ? `${answer} 主要来源：${sourse}` : answer
+
+        console.log(messageContent)
+        this.messages.push({ role: 'bot', content: messageContent })
       } catch (error) {
         if (error.name === 'AbortError') {
           console.log('请求被取消')
@@ -188,38 +236,11 @@ export default {
         this.sendMessage()
       }
     },
-    startNewDialog() {
-      this.messages = []
-      this.userInfo.conversationId = '0'
-      this.selectedDialogIndex = -1
-    },
-    createDialog(name) {
-      const newDialog = {
-        name: name.length > 10 ? name.substring(0, 10) + '...' : name,
-        messages: this.messages,
-        conversationId: this.userInfo.conversationId,
-      }
-      this.dialogs.push(newDialog)
-      this.selectedDialogIndex = this.dialogs.length - 1
-    },
-    selectDialog(index) {
-      this.selectedDialogIndex = index
-      this.messages = this.dialogs[index].messages
-      this.userInfo.conversationId = this.dialogs[index].conversationId
-    },
-    deleteDialog(index) {
-      this.dialogs.splice(index, 1)
-      if (this.selectedDialogIndex >= this.dialogs.length) {
-        this.selectedDialogIndex = this.dialogs.length - 1
-      }
-      if (this.dialogs.length === 0) {
-        this.startNewDialog()
-      } else {
-        this.selectDialog(this.selectedDialogIndex)
-      }
-    },
   },
   mounted() {
+    // 页面加载时从 localStorage 获取用户信息
+    this.loadUserInfo()
+    this.loadChatHistory() // 页面加载时加载历史聊天记录
     document.getElementById('chatInput').addEventListener('keydown', this.handleKeyPress)
   },
   beforeUnmount() {
@@ -565,5 +586,19 @@ pre {
 .main-content .box {
   width: 100%;
   height: 100%;
+}
+.logout-btn {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.logout-btn:hover {
+  background-color: #c0392b;
 }
 </style>

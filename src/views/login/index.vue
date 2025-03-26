@@ -14,9 +14,8 @@
             autocomplete="off"
             @input="validateInput"
             required
-            :class="{ 'is-invalid': usernameError }"
           />
-          <label for="username">用户名</label>
+          <label for="username">手机号</label>
           <span class="highlight"></span>
         </div>
         <div class="input-group">
@@ -27,35 +26,34 @@
             autocomplete="off"
             @input="validateInput"
             required
-            :class="{ 'is-invalid': passwordError }"
           />
           <label for="password">密码</label>
           <span class="highlight"></span>
         </div>
         <div class="error-message" v-if="errorMsg">{{ errorMsg }}</div>
-        <button type="submit" class="submit-btn" :disabled="!isFormValid">
+        <button type="submit" class="submit-btn">
           <span>登录</span>
           <i class="arrow-icon"></i>
         </button>
         <div class="form-footer">
           <span>还没有账号？</span>
           <a href="/register">立即注册</a>
-          <span>&nbsp;&nbsp;| &nbsp;&nbsp;</span>
-          <a href="/forgot-password">忘记密码</a>
+          <!-- <span>&nbsp;&nbsp;| &nbsp;&nbsp;</span>
+          <a href="/forgot-password">忘记密码</a> -->
         </div>
       </form>
-      <button class="login-btn" @click="handleSSOLogin">
-          <span>SSO登录</span>
-          <i class="arrow-icon"></i>
-        </button>
+      <!-- <button class="login-btn" @click="handleSSOLogin">
+        <span>SSO登录</span>
+        <i class="arrow-icon"></i>
+      </button> -->
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted,watch } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { login } from '@/api/auth'
+import axios from 'axios'
 
 const router = useRouter()
 
@@ -67,79 +65,63 @@ const loginForm = reactive({
 
 const errorMsg = ref('')
 const isFormValid = ref(false)
+const loading = ref(false)
 
-//跳转sso
-function handleSSOLogin(){
-  window.location.href="https://www.baidu.com";
-}
-
-// 用户名验证规则
-const validateUsername = () => {
-  const pattern = /^[a-zA-Z0-9]{3,20}$/;
-  if (!username.value) {
-    usernameError.value = '用户名不能为空';
-  } else if (!pattern.test(username.value)) {
-    usernameError.value = '用户名只能包含字母和数字，长度为 3 到 20 个字符';
-  } else {
-    usernameError.value = '';
-  }
-};
-
-// 密码验证规则
-const validatePassword = () => {
-  if (!password.value) {
-    passwordError.value = '密码不能为空';
-  } else if (password.value.length < 6 || password.value.length > 20) {
-    passwordError.value = '密码长度必须为 6 到 20 个字符';
-  } else {
-    passwordError.value = '';
-  }
-};
-
-// 输入验证
-const validateInput = () => {
-  // 基本验证
-  if (loginForm.username && loginForm.password) {
-    isFormValid.value = true
-    errorMsg.value = ''
-  } else {
-    isFormValid.value = false
-  }
-}
+// 跳转 SSO
+// function handleSSOLogin() {
+//   window.location.href = 'https://www.baidu.com' // 修改为实际 SSO 登录 URL
+// }
 
 // 登录处理
 const handleLogin = async () => {
+  if (loading.value) return // 防止重复点击
   // 检查用户名和密码是否为空
   if (!loginForm.username || !loginForm.password) {
     errorMessage('请填写用户名和密码')
+    console.log('Error Message:', errorMsg.value)
     return
   }
-  // 防止XSS攻击
+
+  // 防止 XSS 攻击
   const xssPattern = /(~|\{|\}|"|'|<|>|\?)/g
   if (xssPattern.test(loginForm.username) || xssPattern.test(loginForm.password)) {
     errorMessage('警告:输入内容包含非法字符')
     return
   }
 
+  // 添加 loading 状态
+  loading.value = true
+  console.log(loginForm)
   try {
-    // 对输入进行转义处理
-    const safeUsername = encodeURIComponent(loginForm.username)
-    const safePassword = encodeURIComponent(loginForm.password)
-    // 调用登录 API
-    const response = await login(loginForm.username, loginForm.password)
-    console.log('登录请求:', { username: safeUsername, password: safePassword })
+    // 发送登录请求
+    const response = await axios.post('https://38cr3ii47631.vicp.fun/user/login/', {
+      phone: loginForm.username,
+      password: loginForm.password,
+    })
 
-    // 模拟登录成功并设置cookie，设置过期时间为1天
-    const expires = new Date(Date.now() + 3600 * 24 * 1000).toUTCString()
-    //document.cookie：这是 JavaScript 中用于操作浏览器 cookie 的属性。
-    //path=/：这是 cookie 的路径属性，/ 表示该 cookie 对整个网站的所有路径都有效。
-    //expires=${expires}：这是 cookie 的过期时间属性
-    document.cookie = `authToken=${response.token}; path=/; expires=${expires}`
+    if (response.data.status === 200) {
+      console.log('登录成功')
+      // 登录成功，保存 authToken 到 Cookie，设置过期时间为 30 分钟
+      const { authToken, userName, userId, email, school } = response.data.data
+      const expires = new Date(Date.now() + 30 * 60 * 1000).toUTCString() // 30分钟过期
+      document.cookie = `authToken=${authToken}; path=/; expires=${expires}`
 
-    // 跳转到主页
-    router.push('/home')
+      // 登录成功后存储用户信息
+      localStorage.setItem('userInfo', JSON.stringify({ userName, userId, email, school }))
+
+      // 跳转到主页
+      router.push('/home')
+    } else {
+      errorMessage(response.data.message) // 登录失败，显示错误信息
+      console.log('Error Message:', errorMsg.value)
+    }
   } catch (error) {
+    console.log('Error Message:', errorMsg.value)
+
     errorMessage('登录失败，请稍后重试')
+  } finally {
+    loading.value = false // 重置 loading 状态
+    console.log('Error Message:', errorMsg.value)
   }
 }
 
@@ -148,7 +130,17 @@ const errorMessage = (text) => {
   errorMsg.value = text
   setTimeout(() => {
     errorMsg.value = ''
-  }, 3000)
+  }, 1000)
+}
+
+// 输入验证
+const validateInput = () => {
+  if (loginForm.username && loginForm.password) {
+    isFormValid.value = true
+    errorMsg.value = ''
+  } else {
+    isFormValid.value = false
+  }
 }
 
 onMounted(() => {
@@ -251,7 +243,7 @@ onMounted(() => {
   gap: 10px;
 }
 
-.login-btn{
+.login-btn {
   width: 100%;
   padding: 15px;
   margin-left: 15px;
@@ -381,3 +373,45 @@ onMounted(() => {
   }
 }
 </style>
+
+<!-- <template>
+  <div>
+    <h2>登录</h2>
+    <input v-model="user.id" placeholder="输入用户 ID" />
+    <input v-model="user.school" placeholder="输入学校" />
+    <button @click="login">登录</button>
+  </div>
+</template>
+
+<script>
+import { useUserStore } from '@/store/user' // 确保正确引入 Pinia Store
+
+export default {
+  data() {
+    return {
+      user: { id: '', school: '' }, // 存储用户输入的信息
+    }
+  },
+  methods: {
+    login() {
+      // 用户输入验证
+      if (!this.user.id || !this.user.school) {
+        alert('请输入用户 ID 和学校')
+        return
+      }
+
+      // 获取 Pinia Store
+      const userStore = useUserStore()
+
+      // 将用户信息存储到 Pinia Store 和 localStorage
+      userStore.setUser(this.user)
+
+      // 跳转到聊天界面，传递用户数据作为路由参数
+      this.$router.push({
+        path: '/forgot-password',
+        query: { id: this.user.id, school: this.user.school },
+      })
+    },
+  },
+}
+</script> -->
