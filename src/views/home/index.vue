@@ -98,7 +98,7 @@ export default {
       abortController: null,
       userInfo: {
         name: '用户',
-        id: '',
+        id: '5BDeuOIf',
         email: 'user@example.com',
         conversationId: '0',
         schoolName: '南开大学',
@@ -176,9 +176,11 @@ export default {
           this.messages = chatHistory
           this.scrollToBottom()
         } else {
+          alert('没有找到有效的聊天记录数据')
           console.error('没有找到有效的聊天记录数据')
         }
       } catch (error) {
+        alert('加载聊天记录失败，请稍后再试。')
         console.error('加载聊天记录失败:', error)
       } finally {
         this.isLoading = false // 加载完成，恢复正常状态
@@ -206,7 +208,9 @@ export default {
       this.messages.push({ role: 'user', content: userMessage })
       this.inputMessage = ''
       this.scrollToBottom()
-
+      let mes = ''
+      this.messages.push({ role: 'bot', content: mes })
+      this.scrollToBottom()
       try {
         const response = await fetch(this.apiUrl, {
           method: 'POST',
@@ -219,24 +223,10 @@ export default {
             content: userMessage,
           }),
         })
-
         if (!response.ok) throw new Error(`请求失败，状态码：${response.status}`)
 
         this.reader = response.body.getReader()
         const decoder = new TextDecoder()
-
-        // const data = await response.json()
-        // const answer = data?.data?.answer || 'AI 没有返回消息'
-        // this.userInfo.conversationId = data?.data?.conversationId
-        // const sourse = data?.data?.verbose[0]?.meta?.document?.name || '无'
-
-        // 检查 sourse 是否不是 '无'，如果是，则拼接 answer 和 sourse
-        // const messageContent = sourse !== '无' ? `${answer} 主要来源：${sourse}` : answer
-
-        // console.log(messageContent)
-        // this.messages.push({ role: 'bot', content: messageContent })
-        let mes = ''
-        this.messages.push({ role: 'bot', content: mes })
         while (true) {
           // if (isStopped) {
           //   break // 如果标志位为 true，停止接收数据
@@ -248,6 +238,7 @@ export default {
           }
 
           const chunk = decoder.decode(value, { stream: true })
+          console.log('chunk:', chunk)
           try {
             const jsonData = JSON.parse(chunk)
             console.log(jsonData)
@@ -280,7 +271,8 @@ export default {
           console.log('请求被取消')
         } else {
           console.error('API 请求失败:', error)
-          this.messages.push({ role: 'bot', content: '服务器错误，请稍后再试！' })
+          mes = '服务器错误，请稍后再试！'
+          this.messages.at(-1).content = mes
         }
       }
 
@@ -362,8 +354,11 @@ html,
 body {
   height: 100%;
   width: 100%;
-  background-color: #f7f7f7;
-  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* 防止滚动条 */
+  display: flex;
+  flex-direction: column;
 }
 
 .form-control {
@@ -566,7 +561,8 @@ pre {
 /* 新增样式 */
 .container {
   display: flex;
-  width: 90%; /* 确保容器占满全宽 */
+  width: 80%; /* 确保容器占满全宽 */
+  height: 80%;
   justify-content: flex-start; /* 水平左对齐 */
 }
 

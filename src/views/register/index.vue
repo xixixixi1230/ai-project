@@ -196,7 +196,7 @@ const handleRegister = async () => {
       router.push('/login')
     } else {
       console.error('注册失败:', result.message)
-      alert('注册失败: 改手机已经注册')
+      alert(`注册失败`)
     }
   } catch (error) {
     console.error('注册请求失败:', error)

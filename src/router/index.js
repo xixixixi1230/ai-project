@@ -29,7 +29,7 @@ const routes = [
     path: '/home',
     name: 'Home',
     component: Home,
-    meta: { requiresAuth: true } // 需要登录
+    // meta: { requiresAuth: true } // 需要登录
   },
   {
     path: '/home1',
