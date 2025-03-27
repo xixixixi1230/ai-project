@@ -40,6 +40,13 @@
                 </div>
               </div>
             </div>
+
+            <!-- 加载提示 -->
+
+            <div v-if="isLoading" class="loading-message">
+              <p>正在加载历史对话...</p>
+            </div>
+
             <div class="function">
               <div class="ipt">
                 <div class="col-xs-12">
@@ -54,6 +61,7 @@
                   @click="sendMessage"
                   id="chatBtn"
                   :class="isRequesting ? 'btn btn-danger' : 'btn btn-primary'"
+                  :disabled="isLoading"
                   type="button"
                 >
                   {{ isRequesting ? 'End' : 'Go!' }}
@@ -81,17 +89,20 @@ export default {
     return {
       isUserInfoVisible: false,
       inputMessage: '',
+      reader: null,
       messages: [],
-      apiUrl: 'http://127.0.0.1:8080/chat',
+      apiUrl: 'http://127.0.0.1:8080/streamchat',
       apiUrlconversion: 'http://127.0.0.1:8080/conversation',
       isRequesting: false,
+      isLoading: false, // 加载历史记录的状态
       abortController: null,
       userInfo: {
         name: '用户',
-        id: '123456',
+        id: '',
         email: 'user@example.com',
-        // conversationId: '0',
+        conversationId: '0',
         schoolName: '南开大学',
+        chatId: '',
       },
       dialogs: [],
       selectedDialogIndex: -1,
@@ -100,6 +111,9 @@ export default {
   methods: {
     logout() {
       localStorage.removeItem('userInfo') // 清除用户信息
+      // 清除本地存储的 chatId 和 conversationId
+      localStorage.removeItem('chatId')
+      localStorage.removeItem('conversationId')
       this.$router.push('/login') // 跳转到登录页面
     },
     toggleUserInfo() {
@@ -117,10 +131,17 @@ export default {
         this.userInfo.email = storedUserInfo.email
         this.userInfo.schoolName = storedUserInfo.school
       }
+      // 读取 chatId 和 conversationId
+      const chatId = localStorage.getItem('chatId')
+      const conversationId = localStorage.getItem('conversationId')
+
+      if (chatId) this.userInfo.chatId = chatId
+      if (conversationId) this.userInfo.conversationId = conversationId
     },
 
-    // 从 localStorage 中加载用户信息
     async loadChatHistory() {
+      this.isLoading = true // 开始加载，设置加载状态
+
       try {
         const response = await fetch(this.apiUrlconversion, {
           method: 'POST',
@@ -153,11 +174,14 @@ export default {
           })
 
           this.messages = chatHistory
+          this.scrollToBottom()
         } else {
           console.error('没有找到有效的聊天记录数据')
         }
       } catch (error) {
         console.error('加载聊天记录失败:', error)
+      } finally {
+        this.isLoading = false // 加载完成，恢复正常状态
       }
     },
 
@@ -165,9 +189,10 @@ export default {
       if (this.isRequesting) {
         console.log('结束对话...')
         this.isRequesting = false
-        this.abortController.abort()
-        this.messages.push({ role: 'system', content: '对话已终止。' })
-        this.scrollToBottom()
+        this.stopChat()
+        // this.abortController.abort()
+        // this.messages.push({ role: 'system', content: '对话已终止。' })
+        // this.scrollToBottom()
         return
       }
 
@@ -175,26 +200,21 @@ export default {
       if (userMessage === '') return
 
       this.isRequesting = true
-      this.abortController = new AbortController()
-      const signal = this.abortController.signal
+      // this.abortController = new AbortController()
+      // const signal = this.abortController.signal
 
       this.messages.push({ role: 'user', content: userMessage })
       this.inputMessage = ''
       this.scrollToBottom()
-      // 如果是第一个消息，创建对话并命名
-      // if (this.messages.length === 1) {
-      //   console.log('1111111')
-      //   this.createDialog(userMessage)
-      // }
 
       try {
         const response = await fetch(this.apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          signal: signal,
+          // signal: signal,
           body: JSON.stringify({
             userId: this.userInfo.id,
-            // conversationId: this.userInfo.conversationId,
+            conversationId: '7485033633959460915',
             schoolName: this.userInfo.schoolName,
             content: userMessage,
           }),
@@ -202,16 +222,59 @@ export default {
 
         if (!response.ok) throw new Error(`请求失败，状态码：${response.status}`)
 
-        const data = await response.json()
-        const answer = data?.data?.answer || 'AI 没有返回消息'
-        this.userInfo.conversationId = data?.data?.conversationId
-        const sourse = data?.data?.verbose[0]?.meta?.document?.name || '无'
+        this.reader = response.body.getReader()
+        const decoder = new TextDecoder()
+
+        // const data = await response.json()
+        // const answer = data?.data?.answer || 'AI 没有返回消息'
+        // this.userInfo.conversationId = data?.data?.conversationId
+        // const sourse = data?.data?.verbose[0]?.meta?.document?.name || '无'
 
         // 检查 sourse 是否不是 '无'，如果是，则拼接 answer 和 sourse
-        const messageContent = sourse !== '无' ? `${answer} 主要来源：${sourse}` : answer
+        // const messageContent = sourse !== '无' ? `${answer} 主要来源：${sourse}` : answer
 
-        console.log(messageContent)
-        this.messages.push({ role: 'bot', content: messageContent })
+        // console.log(messageContent)
+        // this.messages.push({ role: 'bot', content: messageContent })
+        let mes = ''
+        this.messages.push({ role: 'bot', content: mes })
+        while (true) {
+          // if (isStopped) {
+          //   break // 如果标志位为 true，停止接收数据
+          // }
+          const { value, done } = await this.reader.read()
+          if (done) {
+            // document.getElementById('stopButton').disabled = true
+            break
+          }
+
+          const chunk = decoder.decode(value, { stream: true })
+          try {
+            const jsonData = JSON.parse(chunk)
+            console.log(jsonData)
+            if (jsonData.type == 'id') {
+              this.userInfo.chatId = jsonData.chat_id
+              this.userInfo.conversationId = jsonData.conversation_id
+              // 存储到 localStorage
+              localStorage.setItem('chatId', jsonData.chat_id)
+              localStorage.setItem('conversationId', jsonData.conversation_id)
+              // document.getElementById('stopButton').disabled = false
+              continue
+            } else if (jsonData.type == 'verbose') {
+              console.log('verbose', jsonData.verbose)
+              continue
+            } else {
+              mes += chunk
+              // messageDiv.innerText += chunk
+              // chatBox.scrollTop = chatBox.scrollHeight
+            }
+          } catch (e) {
+            mes += chunk
+            // messageDiv.innerText += chunk
+            // chatBox.scrollTop = chatBox.scrollHeight
+          }
+          this.messages.at(-1).content = mes
+          this.scrollToBottom()
+        }
       } catch (error) {
         if (error.name === 'AbortError') {
           console.log('请求被取消')
@@ -224,12 +287,46 @@ export default {
       this.isRequesting = false
       this.scrollToBottom()
     },
+
+    async stopChat() {
+      console.log('停止对话...')
+      const cancelApiUrl = 'http://localhost:8080/cancel' // 你的取消接口地址
+      const requestData = {
+        chatId: this.userInfo.chatId,
+        conversationId: this.userInfo.conversationId,
+      }
+
+      try {
+        const response = await fetch(cancelApiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData),
+        })
+
+        if (!response.ok) throw new Error('取消请求失败')
+        console.log('取消请求成功')
+
+        if (this.reader) {
+          this.reader.cancel()
+        }
+        // this.isStopped = true // 设置标志位为 true
+        // document.getElementById("stopButton").disabled = true;
+      } catch (error) {
+        console.error('取消请求错误:', error)
+      }
+    },
+
     scrollToBottom() {
       this.$nextTick(() => {
         const chatWindow = this.$refs.chatWindowRef
-        chatWindow.scrollTop = chatWindow.scrollHeight
+        if (chatWindow) {
+          chatWindow.scrollTop = chatWindow.scrollHeight
+        } else {
+          console.warn('chatWindow 为空，无法滚动！')
+        }
       })
     },
+
     handleKeyPress(event) {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault()
@@ -242,6 +339,9 @@ export default {
     this.loadUserInfo()
     this.loadChatHistory() // 页面加载时加载历史聊天记录
     document.getElementById('chatInput').addEventListener('keydown', this.handleKeyPress)
+    this.$nextTick(() => {
+      this.scrollToBottom()
+    })
   },
   beforeUnmount() {
     document.getElementById('chatInput').removeEventListener('keydown', this.handleKeyPress)
@@ -600,5 +700,15 @@ pre {
 
 .logout-btn:hover {
   background-color: #c0392b;
+}
+
+.loading-message {
+  font-size: 30px;
+  font-weight: bold;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
 }
 </style>

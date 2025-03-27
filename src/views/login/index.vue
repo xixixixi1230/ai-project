@@ -37,7 +37,9 @@
         </button>
         <div class="form-footer">
           <span>还没有账号？</span>
-          <a href="/register">立即注册</a>
+          <router-link to="/register">立即注册</router-link>
+          <!-- <a href="/register">立即注册</a> -->
+
           <!-- <span>&nbsp;&nbsp;| &nbsp;&nbsp;</span>
           <a href="/forgot-password">忘记密码</a> -->
         </div>
@@ -94,7 +96,7 @@ const handleLogin = async () => {
   console.log(loginForm)
   try {
     // 发送登录请求
-    const response = await axios.post('https://38cr3ii47631.vicp.fun/user/login/', {
+    const response = await axios.post('http://127.0.0.1:7001/user/login/', {
       phone: loginForm.username,
       password: loginForm.password,
     })

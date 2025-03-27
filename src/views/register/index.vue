@@ -178,7 +178,7 @@ const handleRegister = async () => {
   if (hasErrors.value) return
 
   try {
-    const response = await fetch('https://38cr3ii47631.vicp.fun/user/register/', {
+    const response = await fetch('http://127.0.0.1:7001/user/register/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

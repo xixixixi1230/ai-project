@@ -16,7 +16,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5000, // 设置运行端口
+    port: 5500, // 设置运行端口
     // proxy: {
     //   '/user': {
     //     target: 'https://38cr3ii47631.vicp.fun',  // 后端服务器地址
