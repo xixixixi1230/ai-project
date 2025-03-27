@@ -119,11 +119,11 @@ const hasErrors = computed(() => {
 })
 
 const validateUsername = () => {
-  const pattern = /^[a-zA-Z0-9]{3,20}$/
+  const pattern = /^[a-zA-Z0-9\u4e00-\u9fa5]{2,20}$/ // 允许汉字、字母、数字，长度 2-20
   usernameError.value = !username.value
     ? '用户名不能为空'
     : !pattern.test(username.value)
-      ? '用户名只能包含字母和数字，长度为 3 到 20 个字符'
+      ? '用户名只能包含字母、数字和汉字，长度为 2 到 20 个字符'
       : ''
 }
 

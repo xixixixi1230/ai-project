@@ -227,6 +227,7 @@ export default {
 
         this.reader = response.body.getReader()
         const decoder = new TextDecoder()
+        let buffer = ''
         while (true) {
           // if (isStopped) {
           //   break // 如果标志位为 true，停止接收数据
@@ -238,9 +239,9 @@ export default {
           }
 
           const chunk = decoder.decode(value, { stream: true })
-          console.log('chunk:', chunk)
+          buffer += chunk
           try {
-            const jsonData = JSON.parse(chunk)
+            const jsonData = JSON.parse(buffer)
             console.log(jsonData)
             if (jsonData.type == 'id') {
               this.userInfo.chatId = jsonData.chat_id
@@ -248,18 +249,24 @@ export default {
               // 存储到 localStorage
               localStorage.setItem('chatId', jsonData.chat_id)
               localStorage.setItem('conversationId', jsonData.conversation_id)
+              buffer = ''
               // document.getElementById('stopButton').disabled = false
               continue
             } else if (jsonData.type == 'verbose') {
               console.log('verbose', jsonData.verbose)
+              buffer = ''
               continue
-            } else {
-              mes += chunk
+            } else if (jsonData.type == 'text') {
+              mes += jsonData.content
+              buffer = ''
+              continue
               // messageDiv.innerText += chunk
               // chatBox.scrollTop = chatBox.scrollHeight
+            } else {
+              console.log(buffer)
             }
           } catch (e) {
-            mes += chunk
+            continue
             // messageDiv.innerText += chunk
             // chatBox.scrollTop = chatBox.scrollHeight
           }
@@ -337,6 +344,8 @@ export default {
   },
   beforeUnmount() {
     document.getElementById('chatInput').removeEventListener('keydown', this.handleKeyPress)
+    // 在页面关闭或刷新前取消对话
+    this.stopChat()
   },
 }
 </script>
