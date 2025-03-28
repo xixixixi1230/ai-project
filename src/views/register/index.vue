@@ -238,6 +238,7 @@ watch(confirmPassword, validateConfirmPassword)
   border-radius: 20px;
   padding: 40px;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+  margin: 0 auto;
 }
 
 .form-header {
@@ -257,13 +258,23 @@ watch(confirmPassword, validateConfirmPassword)
   font-size: 16px;
 }
 
-.floating-form .input-group {
+.floating-form {
   position: relative;
   margin-bottom: 30px;
 }
 
-.input-group input {
+.input-group {
+  position: relative;
+  margin-bottom: 30px;
   width: 100%;
+  max-width: 400px;  /* 限制最大宽度为400px */
+  margin-left: auto;
+  margin-right: auto; /* 确保输入框居中 */
+}
+
+.input-group input {
+  width: 100%; /* 使输入框占据父容器宽度 */
+  box-sizing: border-box; /* 包括padding和border在内的宽度计算 */
   padding: 15px;
   border: 2px solid #e0e0e0;
   border-radius: 12px;
@@ -324,6 +335,7 @@ watch(confirmPassword, validateConfirmPassword)
 
 .submit-btn {
   width: 100%;
+  max-width: 400px;
   padding: 15px;
   background: linear-gradient(to right, #3498db, #2980b9);
   color: white;
@@ -336,6 +348,8 @@ watch(confirmPassword, validateConfirmPassword)
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
   gap: 10px;
 }
 
@@ -400,7 +414,7 @@ watch(confirmPassword, validateConfirmPassword)
 
 @media (max-width: 480px) {
   .register-container {
-    padding: 20px;
+    padding: 30px 20px;
     margin: 10px;
     max-width: 100%;
   }
