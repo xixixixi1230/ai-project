@@ -1,492 +1,725 @@
 <template>
-  <div class="reset-password-wrapper">
-    <div class="reset-password-container">
-      <div class="form-header">
-        <h2>重置密码</h2>
-        <p>请按照提示重置您的密码</p>
+  <div class="container">
+    <!-- 用户头像 -->
+    <div class="user-avatar" @click="toggleUserInfo">
+      <img src="../../static/images/user.png" alt="User Avatar" />
+    </div>
+    <!-- 用户信息，位置固定在头像下方 -->
+    <div class="user-info" v-if="isUserInfoVisible">
+      <div class="popup-content">
+        <p><strong>名称:</strong> {{ userInfo.name }}</p>
+        <p><strong>ID :</strong> {{ userInfo.id }}</p>
+        <p><strong>邮箱:</strong> {{ userInfo.email }}</p>
+        <p><strong>学校:</strong> {{ userInfo.schoolName }}</p>
+        <button class="logout-btn" @click="logout">退出登录</button>
       </div>
-      <form @submit.prevent="handleResetPassword" class="floating-form">
-        <div class="input-group">
-          <input
-            type="email"
-            id="email"
-            v-model="email"
-            required
-            :class="{ 'is-invalid': emailError }"
-          />
-          <label for="email">邮箱地址</label>
-          <span class="highlight"></span>
-          <p v-if="emailError" class="error-message">{{ emailError }}</p>
+    </div>
+
+    <!-- 左侧菜单栏 -->
+
+    <!-- 主内容区域 -->
+    <div class="main-content">
+      <div class="row">
+        <div class="box">
+          <div class="title">
+            <h2 class="text-center" style="color: #3498db">数字辅导员</h2>
+          </div>
+          <div class="answer">
+            <div class="tips">
+              <h4 class="text-center">欢迎使用AI思政聊天平台</h4>
+            </div>
+            <div id="chatWindow" ref="chatWindowRef">
+              <div v-for="(message, index) in messages" :key="index" class="message-bubble">
+                <div
+                  :class="
+                    message.role === 'user' ? 'request-icon chat-icon' : 'response-icon chat-icon'
+                  "
+                ></div>
+                <div class="message-text">
+                  <div v-html="message.content"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 加载提示 -->
+
+            <div v-if="isLoading || messages.length === 0" class="loading-message">
+              <p v-if="isLoading">正在加载历史对话...</p>
+              <p v-else-if="messages.length === 0">暂无历史对话记录，开始和AI助手聊天吧！</p>
+            </div>
+
+            <div class="function">
+              <div class="ipt">
+                <div class="col-xs-12">
+                  <textarea
+                    v-model="inputMessage"
+                    id="chatInput"
+                    class="form-control"
+                    rows="1"
+                  ></textarea>
+                </div>
+                <button
+                  @click="sendMessage"
+                  id="chatBtn"
+                  :class="isRequesting ? 'btn btn-danger' : 'btn btn-primary'"
+                  :disabled="isLoading"
+                  type="button"
+                >
+                  {{ isRequesting ? 'End' : 'Go!' }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <footer class="foot" style="margin-top: 20px">
+            <!-- <p class="lead text-center">祝你大学生活欢乐愉快！</p> -->
+            <p class="lead text-center">
+              <a href="https://cs.nankai.edu.cn/" target="_blank"
+                ><i class="fa fa-link fa-lg" aria-hidden="true"></i>&nbsp; 联系我们</a
+              >
+            </p>
+          </footer>
         </div>
-        <div class="input-group verification-group">
-          <input
-            type="text"
-            id="verificationCode"
-            v-model="verificationCode"
-            required
-            maxlength="6"
-            :class="{ 'is-invalid': verificationCodeError }"
-          />
-          <label for="verificationCode">验证码</label>
-          <button
-            type="button"
-            @click="sendVerificationCode"
-            class="send-code-btn"
-            :disabled="isSendingCode || codeSent"
-          >
-            {{ codeSent ? `已发送（${countdown}s）` : '获取验证码' }}
-          </button>
-          <span class="highlight"></span>
-          <p v-if="verificationCodeError" class="error-message">{{ verificationCodeError }}</p>
-        </div>
-        <div class="input-group">
-          <input
-            type="password"
-            id="newPassword"
-            v-model="newPassword"
-            required
-            minlength="6"
-            maxlength="20"
-            :class="{ 'is-invalid': newPasswordError }"
-          />
-          <label for="newPassword">新密码</label>
-          <span class="highlight"></span>
-          <p v-if="newPasswordError" class="error-message">{{ newPasswordError }}</p>
-        </div>
-        <div class="input-group">
-          <input
-            type="password"
-            id="confirmNewPassword"
-            v-model="confirmNewPassword"
-            required
-            minlength="6"
-            maxlength="20"
-            :class="{ 'is-invalid': confirmNewPasswordError }"
-          />
-          <label for="confirmNewPassword">确认新密码</label>
-          <span class="highlight"></span>
-          <p v-if="confirmNewPasswordError" class="error-message">{{ confirmNewPasswordError }}</p>
-        </div>
-        <button type="submit" class="submit-btn" :disabled="hasErrors">
-          <span>重置密码</span>
-          <i class="arrow-icon"></i>
-        </button>
-        <div class="form-footer">
-          <span>想起密码了？</span>
-          <a href="/login">立即登录</a>
-        </div>
-      </form>
+      </div>
     </div>
   </div>
 </template>
-<script setup>
-import { ref, watch, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-// 这里需要替换为你实际的 API 导入
-//   import { sendResetCode, resetPassword } from '@/api/auth';
 
-const router = useRouter()
-
-// 表单数据
-const email = ref('')
-const verificationCode = ref('')
-const newPassword = ref('')
-const confirmNewPassword = ref('')
-
-// 错误信息
-const emailError = ref('')
-const verificationCodeError = ref('')
-const newPasswordError = ref('')
-const confirmNewPasswordError = ref('')
-
-// 验证码相关
-const isSendingCode = ref(false)
-const codeSent = ref(false)
-const countdown = ref(60)
-
-// 检查是否有错误
-const hasErrors = computed(() => {
-  return (
-    emailError.value ||
-    verificationCodeError.value ||
-    newPasswordError.value ||
-    confirmNewPasswordError.value
-  )
-})
-
-// 邮箱验证规则
-const validateEmail = () => {
-  const pattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-  if (!email.value) {
-    emailError.value = '邮箱地址不能为空'
-  } else if (!pattern.test(email.value)) {
-    emailError.value = '请输入有效的邮箱地址'
-  } else {
-    emailError.value = ''
-  }
-}
-
-// 验证码验证规则
-const validateVerificationCode = () => {
-  if (!verificationCode.value) {
-    verificationCodeError.value = '验证码不能为空'
-  } else if (verificationCode.value.length !== 6) {
-    verificationCodeError.value = '验证码长度必须为 6 位'
-  } else {
-    verificationCodeError.value = ''
-  }
-}
-
-// 新密码验证规则
-const validateNewPassword = () => {
-  if (!newPassword.value) {
-    newPasswordError.value = '新密码不能为空'
-  } else if (newPassword.value.length < 6 || newPassword.value.length > 20) {
-    newPasswordError.value = '新密码长度必须为 6 到 20 个字符'
-  } else {
-    newPasswordError.value = ''
-  }
-}
-
-// 确认新密码验证规则
-const validateConfirmNewPassword = () => {
-  if (!confirmNewPassword.value) {
-    confirmNewPasswordError.value = '确认新密码不能为空'
-  } else if (confirmNewPassword.value !== newPassword.value) {
-    confirmNewPasswordError.value = '两次输入的新密码不一致'
-  } else {
-    confirmNewPasswordError.value = ''
-  }
-}
-
-// 发送验证码
-const sendVerificationCode = async () => {
-  validateEmail()
-  if (emailError.value) return
-
-  isSendingCode.value = true
-  try {
-    //   await sendResetCode(email.value);
-    codeSent.value = true
-    const timer = setInterval(() => {
-      if (countdown.value > 0) {
-        countdown.value--
-      } else {
-        clearInterval(timer)
-        codeSent.value = false
-        countdown.value = 60
-      }
-    }, 1000)
-  } catch (error) {
-    emailError.value = '发送验证码失败，请稍后重试'
-  } finally {
-    isSendingCode.value = false
-  }
-}
-
-// 重置密码处理
-const handleResetPassword = async () => {
-  validateEmail()
-  validateVerificationCode()
-  validateNewPassword()
-  validateConfirmNewPassword()
-
-  if (hasErrors.value) return
-
-  try {
-    // 调用重置密码 API
-    //   await resetPassword(email.value, verificationCode.value, newPassword.value);
-    console.log('密码重置成功')
-    // 跳转到登录页面
-    router.push('/login')
-  } catch (error) {
-    console.error('密码重置失败:', error)
-    // 可以添加更详细的错误提示
-  }
-}
-
-// 监听输入变化，实时验证
-watch(email, validateEmail)
-watch(verificationCode, validateVerificationCode)
-watch(newPassword, () => {
-  validateNewPassword()
-  validateConfirmNewPassword()
-})
-watch(confirmNewPassword, validateConfirmNewPassword)
-</script>
-<style scoped>
-.reset-password-wrapper {
-  min-height: 93.5vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  padding: 20px;
-}
-
-.reset-password-container {
-  width: 100%;
-  max-width: 480px;
-  background: white;
-  border-radius: 20px;
-  padding: 40px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-}
-
-.form-header {
-  text-align: center;
-  margin-bottom: 40px;
-}
-
-.form-header h2 {
-  color: #2c3e50;
-  font-size: 32px;
-  margin-bottom: 10px;
-  font-weight: 700;
-}
-
-.form-header p {
-  color: #95a5a6;
-  font-size: 16px;
-}
-
-.floating-form .input-group {
-  position: relative;
-  margin-bottom: 30px;
-}
-
-.input-group input {
-  width: 100%;
-  padding: 15px;
-  border: 2px solid #e0e0e0;
-  border-radius: 12px;
-  font-size: 16px;
-  transition: all 0.3s ease;
-  background: transparent;
-}
-
-.input-group label {
-  position: absolute;
-  left: 15px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: white;
-  padding: 0 5px;
-  color: #95a5a6;
-  font-size: 16px;
-  transition: all 0.3s ease;
-  pointer-events: none;
-}
-
-.input-group input:focus,
-.input-group input:valid {
-  border-color: #3498db;
-}
-
-.input-group input:focus + label,
-.input-group input:valid + label {
-  top: 0;
-  font-size: 14px;
-  color: #3498db;
-}
-
-.verification-group {
-  display: flex;
-  gap: 10px;
-}
-
-.verification-group input {
-  flex: 1;
-}
-
-.send-code-btn {
-  padding: 0 20px;
-  background: #e8f5fe;
-  color: #3498db;
-  border: none;
-  border-radius: 12px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-}
-
-.send-code-btn:hover {
-  background: #d0e9fd;
-}
-
-.submit-btn {
-  width: 100%;
-  padding: 15px;
-  background: linear-gradient(to right, #3498db, #2980b9);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 18px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.submit-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
-}
-
-.arrow-icon {
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  display: inline-block;
-  padding: 3px;
-  transform: rotate(-45deg);
-}
-
-.form-footer {
-  text-align: center;
-  margin-top: 20px;
-  color: #95a5a6;
-}
-
-.form-footer a {
-  color: #3498db;
-  text-decoration: none;
-  margin-left: 5px;
-  font-weight: 600;
-}
-
-.form-footer a:hover {
-  text-decoration: underline;
-}
-
-.error-message {
-  color: red;
-  font-size: 12px;
-  margin-top: 5px;
-}
-
-.is-invalid {
-  border-color: red !important;
-}
-
-@media (max-width: 480px) {
-  .reset-password-container {
-    padding: 20px;
-  }
-
-  .form-header h2 {
-    font-size: 24px;
-  }
-
-  .input-group input {
-    padding: 12px;
-  }
-}
-
-@media (max-width: 768px) {
-  .reset-password-container {
-    max-width: 400px;
-    padding: 30px;
-  }
-
-  .form-header h2 {
-    font-size: 28px;
-  }
-
-  .form-header p {
-    font-size: 14px;
-  }
-}
-
-@media (max-width: 480px) {
-  .reset-password-container {
-    padding: 20px;
-    margin: 10px;
-    max-width: 100%;
-  }
-
-  .form-header h2 {
-    font-size: 24px;
-  }
-
-  .form-header p {
-    font-size: 14px;
-  }
-
-  .input-group input {
-    padding: 12px;
-    font-size: 14px;
-  }
-
-  .input-group label {
-    font-size: 14px;
-  }
-
-  .verification-group {
-    flex-direction: column;
-    gap: 5px;
-  }
-
-  .send-code-btn {
-    width: 100%;
-    padding: 12px;
-  }
-
-  .submit-btn {
-    padding: 12px;
-    font-size: 16px;
-  }
-}
-
-@media (max-width: 320px) {
-  .reset-password-container {
-    padding: 15px;
-  }
-
-  .form-header h2 {
-    font-size: 20px;
-  }
-
-  .input-group {
-    margin-bottom: 20px;
-  }
-}
-</style>
-
-<!-- <script>
-import { useUserStore } from '@/store/user'
-
+<script>
+import { marked } from 'marked'
 export default {
   data() {
     return {
-      userStore: useUserStore(),
-    }
-  },
-  created() {
-    // 假设从路由参数或其他地方获取用户 ID
-    const userId = this.$route.query.id || 'defaultUserId' // 使用实际的 userId
-
-    if (!this.userStore.id) {
-      this.userStore.loadUser(userId) // 加载用户数据
+      isUserInfoVisible: false,
+      inputMessage: '',
+      reader: null,
+      messages: [],
+      apiUrl: 'http://127.0.0.1:8080/streamchat',
+      apiUrlconversion: 'http://127.0.0.1:8080/conversation',
+      isRequesting: false,
+      isLoading: false, // 加载历史记录的状态
+      abortController: null,
+      userInfo: {
+        name: '用户',
+        id: '5BDeuOIf',
+        email: 'user@example.com',
+        conversationId: '0',
+        schoolName: '南开大学',
+        chatId: '',
+      },
+      dialogs: [],
+      selectedDialogIndex: -1,
     }
   },
   methods: {
     logout() {
-      this.userStore.logout() // 调用 logout 清除数据
-      this.$router.push('/login') // 跳转到登录页
+      localStorage.removeItem('userInfo') // 清除用户信息
+      // 清除本地存储的 chatId 和 conversationId
+      localStorage.removeItem('chatId')
+      localStorage.removeItem('conversationId')
+      this.$router.push('/login') // 跳转到登录页面
     },
+    toggleUserInfo() {
+      this.isUserInfoVisible = !this.isUserInfoVisible
+    },
+
+    loadUserInfo() {
+      // 从 localStorage 中读取用户信息
+      const storedUserInfo = JSON.parse(localStorage.getItem('userInfo'))
+
+      // 如果用户信息存在，将其存储到 data 中
+      if (storedUserInfo) {
+        this.userInfo.name = storedUserInfo.userName
+        this.userInfo.id = storedUserInfo.userId
+        this.userInfo.email = storedUserInfo.email
+        this.userInfo.schoolName = storedUserInfo.school
+      }
+      // 读取 chatId 和 conversationId
+      const chatId = localStorage.getItem('chatId')
+      const conversationId = localStorage.getItem('conversationId')
+
+      if (chatId) this.userInfo.chatId = chatId
+      if (conversationId) this.userInfo.conversationId = conversationId
+    },
+
+    async loadChatHistory() {
+      this.isLoading = true // 开始加载，设置加载状态
+
+      try {
+        const response = await fetch(this.apiUrlconversion, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: this.userInfo.id,
+          }),
+        })
+
+        const data = await response.json()
+        console.log('加载聊天记录成功:', data?.data)
+
+        if (data?.code === 200 && Array.isArray(data?.data) && data?.data.length > 0) {
+          const chatHistory = []
+
+          // 遍历每个会话
+          data.data.forEach((conversation) => {
+            // 遍历每个消息
+            conversation.message.forEach((item) => {
+              if (item.content) {
+                // 仅在消息内容存在时才添加
+                chatHistory.push({
+                  role: item.role === 'assistant' ? 'bot' : item.role, // 如果是 assistant，就替换成 bot
+                  content: marked(item.content), // 转换 Markdown
+                })
+              }
+            })
+          })
+
+          this.messages = chatHistory
+          this.scrollToBottom()
+        } else {
+          console.error('没有找到有效的聊天记录数据')
+        }
+      } catch (error) {
+        alert('加载聊天记录失败，请稍后再试。')
+        console.error('加载聊天记录失败:', error)
+      } finally {
+        this.isLoading = false // 加载完成，恢复正常状态
+      }
+    },
+
+    async sendMessage() {
+      if (this.isRequesting) {
+        console.log('结束对话...')
+        this.isRequesting = false
+        this.stopChat()
+        // this.abortController.abort()
+        // this.messages.push({ role: 'system', content: '对话已终止。' })
+        // this.scrollToBottom()
+        return
+      }
+
+      const userMessage = this.inputMessage.trim()
+      if (userMessage === '') return
+
+      this.isRequesting = true
+      // this.abortController = new AbortController()
+      // const signal = this.abortController.signal
+
+      this.messages.push({ role: 'user', content: userMessage })
+      this.inputMessage = ''
+      this.scrollToBottom()
+      let mes = ''
+      this.messages.push({ role: 'bot', content: mes })
+      this.scrollToBottom()
+      try {
+        const response = await fetch(this.apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // signal: signal,
+          body: JSON.stringify({
+            userId: this.userInfo.id,
+            conversationId: '7485033633959460915',
+            schoolName: this.userInfo.schoolName,
+            content: userMessage,
+          }),
+        })
+        if (!response.ok) throw new Error(`请求失败，状态码：${response.status}`)
+
+        this.reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        while (true) {
+          // if (isStopped) {
+          //   break // 如果标志位为 true，停止接收数据
+          // }
+          const { value, done } = await this.reader.read()
+          if (done) {
+            // document.getElementById('stopButton').disabled = true
+            break
+          }
+
+          const chunk = decoder.decode(value, { stream: true })
+          buffer += chunk
+          try {
+            const jsonData = JSON.parse(buffer)
+            console.log('jsonData', jsonData)
+            if (jsonData.type == 'id') {
+              this.userInfo.chatId = jsonData.chat_id
+              this.userInfo.conversationId = jsonData.conversation_id
+              // 存储到 localStorage
+              localStorage.setItem('chatId', jsonData.chat_id)
+              localStorage.setItem('conversationId', jsonData.conversation_id)
+              buffer = ''
+              // document.getElementById('stopButton').disabled = false
+              continue
+            } else if (jsonData.type == 'verbose') {
+              console.log('verbose', jsonData.verbose)
+              buffer = ''
+              continue
+            } else if (jsonData.type == 'text') {
+              // mes += jsonData.content
+              // //
+              // this.messages.at(-1).content = mes
+              // this.scrollToBottom()
+              // buffer = ''
+              mes += jsonData.content
+              this.messages.at(-1).content = marked(mes) // 渲染 Markdown
+              this.scrollToBottom()
+              buffer = ''
+              continue
+            } else {
+              console.log(buffer)
+            }
+          } catch (e) {
+            continue
+          }
+          // this.messages.at(-1).content = mes
+          this.scrollToBottom()
+        }
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log('请求被取消')
+        } else {
+          console.error('API 请求失败:', error)
+          mes = '服务器错误，请稍后再试！'
+          this.messages.at(-1).content = mes
+        }
+      }
+
+      this.isRequesting = false
+      this.scrollToBottom()
+    },
+
+    async stopChat() {
+      console.log('停止对话...')
+      const cancelApiUrl = 'http://localhost:8080/cancel' // 你的取消接口地址
+      const requestData = {
+        chatId: this.userInfo.chatId,
+        conversationId: this.userInfo.conversationId,
+      }
+
+      try {
+        const response = await fetch(cancelApiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData),
+        })
+
+        if (!response.ok) throw new Error('取消请求失败')
+        console.log('取消请求成功')
+
+        if (this.reader) {
+          this.reader.cancel()
+        }
+        // this.isStopped = true // 设置标志位为 true
+        // document.getElementById("stopButton").disabled = true;
+      } catch (error) {
+        console.error('取消请求错误:', error)
+      }
+    },
+
+    scrollToBottom() {
+      this.$nextTick(() => {
+        const chatWindow = this.$refs.chatWindowRef
+        if (chatWindow) {
+          chatWindow.scrollTop = chatWindow.scrollHeight
+        } else {
+          console.warn('chatWindow 为空，无法滚动！')
+        }
+      })
+    },
+
+    handleKeyPress(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault()
+        this.sendMessage()
+      }
+    },
+  },
+  mounted() {
+    // 页面加载时从 localStorage 获取用户信息
+    this.loadUserInfo()
+    this.loadChatHistory() // 页面加载时加载历史聊天记录
+    document.getElementById('chatInput').addEventListener('keydown', this.handleKeyPress)
+    this.$nextTick(() => {
+      this.scrollToBottom()
+    })
+  },
+  beforeUnmount() {
+    document.getElementById('chatInput').removeEventListener('keydown', this.handleKeyPress)
+    // 在页面关闭或刷新前取消对话
+    this.stopChat()
   },
 }
 </script>
 
-<template>
-  <div>
-    <h2>欢迎来到聊天界面</h2>
-    <p>用户 ID: {{ userStore.id }}</p>
-    <p>学校: {{ userStore.school }}</p>
-    <button @click="logout">退出登录</button>
-  </div>
-</template> -->
+<style scoped>
+@import url('../../static/css/bootstrap.min.css');
+@import url('../../static/font-awesome/css/font-awesome.min.css');
+@import url('../../static/css/github-dark-dimmed.min.css');
+
+body {
+  background-color: var(--bg-color);
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* 防止滚动条 */
+  display: flex;
+  flex-direction: column;
+}
+
+.form-control {
+  border-color: #3498db !important;
+  padding: 6px 6px !important;
+}
+
+pre {
+  position: relative;
+  color: #adbac7;
+  background: #2b2a2a;
+}
+
+.title {
+  width: 100%;
+}
+
+.title h2 {
+  margin-bottom: 20px;
+  color: #4aa593;
+}
+
+.user-avatar {
+  position: fixed;
+  top: 30px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 10;
+  border: 3px solid #3498db;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-info {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 250px;
+  padding: 15px;
+  background-color: white;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  cursor: pointer;
+}
+
+.popup-content h4 {
+  margin-bottom: 10px;
+}
+
+.popup-content p {
+  margin-bottom: 8px;
+}
+
+.row {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.answer {
+  width: 100%;
+  position: relative;
+  height: calc(100vh - 165px);
+}
+
+.answer .function {
+  padding: 0 15px;
+  width: 100%;
+  position: absolute;
+  bottom: 0px;
+}
+
+.answer .tips {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.answer .tips h4 {
+  color: rgb(0, 132, 255);
+}
+
+.answer .ipt {
+  display: flex;
+  align-items: center;
+  padding-right: 15px;
+  border-radius: 10px;
+  height: 70px;
+  border: 1px solid #3498db;
+  box-shadow: 0px 0px 10px 0px rgba(26, 179, 148, 0.2);
+}
+
+.answer .ipt textarea {
+  resize: none;
+  overflow-y: auto;
+  border: none;
+  box-shadow: none;
+  font-size: 16px !important;
+}
+
+.answer .ipt textarea:focus {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.answer #chatWindow {
+  width: 100%;
+  max-height: calc(100% - 100px);
+  height: auto;
+  overflow-y: auto;
+}
+
+.message-bubble {
+  padding: 5px;
+  margin: 10px;
+  display: flex;
+  align-items: flex-start;
+  align-items: center;
+  border-bottom: 1px dashed #e7eaec;
+}
+
+.message-bubble .message-text {
+  width: auto;
+  max-width: calc(100% - 45px);
+  font-size: 16px !important;
+  margin-left: 15px;
+  word-break: break-all;
+}
+
+.message-bubble .message-text p {
+  margin: 0;
+  line-height: 1.6;
+  font-size: 16px !important;
+}
+
+.message-bubble .chat-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 3px;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  background-size: contain;
+}
+
+.message-bubble .request-icon {
+  background-image: url(../../static/images/user.png);
+}
+
+.message-bubble .response-icon {
+  background-image: url(../../static/images/robot.png);
+}
+
+.answer #chatBtn {
+  background-color: #3498db;
+  border-color: #3498db;
+}
+
+.answer #chatBtn.btn-danger {
+  background-color: red !important;
+  border-color: red !important;
+}
+
+.answer #chatBtn:focus {
+  outline: 5px auto #3498db !important;
+}
+
+.foot p:first-child {
+  margin-bottom: 10px;
+  opacity: 0.9;
+}
+
+.foot p:nth-child(2) {
+  margin-bottom: 0;
+}
+
+.foot p a {
+  margin-right: 10px;
+  font-weight: 400;
+  font-size: 18px;
+  color: #3498db;
+  text-decoration: none;
+}
+
+.dropdown-menu {
+  border: 0 !important;
+}
+
+/* 新增样式 */
+.container {
+  display: flex;
+  width: 80%; /* 确保容器占满全宽 */
+  height: 80%;
+  justify-content: flex-start; /* 水平左对齐 */
+}
+
+.sidebar {
+  left: 20px; /* 靠近左侧 */
+  width: 15%; /* 占据屏幕宽度的20% */
+  background-color: #f8f9fa;
+  padding: 20px;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  position: relative; /* 确保子元素的定位相对于sidebar */
+}
+
+.sidebar h3 {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.sidebar ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.sidebar li {
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 40px; /* 设置固定高度 */
+}
+
+.sidebar li:hover {
+  background-color: #e9ecef;
+}
+
+.sidebar li.active {
+  background-color: #e9ecef; /* 暗灰色 */
+  color: black;
+}
+
+.sidebar li button {
+  margin-left: 10px;
+  padding: 5px 10px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.sidebar li button:hover {
+  background-color: #c82333;
+}
+
+.sidebar .new-dialog-item {
+  padding: 0; /* 移除内边距 */
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 40px; /* 设置固定高度 */
+  width: 100%; /* 确保宽度占满整个li */
+}
+
+.sidebar .new-dialog-item button {
+  display: block; /* 设置为块级元素 */
+  width: 100%; /* 占满整个li */
+  height: 100%; /* 占满整个li */
+  padding: 0; /* 取消内边距 */
+  background-color: transparent; /* 取消背景颜色 */
+  border: none; /* 取消边框 */
+  color: #3498db; /* 设置文字颜色 */
+  cursor: pointer;
+  transition: color 0.3s; /* 添加颜色过渡效果 */
+  font-size: 20px;
+  text-align: center; /* 文字居中 */
+}
+
+.sidebar .new-dialog-item button:hover {
+  background-color: #e9ecef;
+}
+
+.sidebar .new-dialog-item:active {
+  background-color: #e9ecef; /* 暗灰色 */
+}
+
+/* 删除按钮样式 */
+.sidebar .delete-button {
+  background-color: transparent;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  font-size: 20px;
+  transition: color 0.3s;
+}
+
+.sidebar .delete-button:hover {
+  color: #c82333;
+}
+
+.main-content {
+  flex: 1; /* 占据剩余的宽度 */
+  padding: 20px;
+  margin-left: 20px; /* 确保与sidebar有一定的间距 */
+}
+
+.main-content .row {
+  width: 100%;
+  height: 100%;
+}
+
+.main-content .box {
+  width: 100%;
+  height: 100%;
+}
+.logout-btn {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.logout-btn:hover {
+  background-color: #c0392b;
+}
+
+.loading-message {
+  font-size: 30px;
+  font-weight: bold;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+</style>
