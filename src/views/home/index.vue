@@ -43,9 +43,9 @@
 
             <!-- 加载提示 -->
 
-            <div v-if="isLoading || messages.length === 0" class="loading-message">
+            <div v-if="isLoading" class="loading-message">
               <p v-if="isLoading">正在加载历史对话...</p>
-              <p v-else-if="messages.length === 0">暂无历史对话记录，开始和AI助手聊天吧！</p>
+              <!-- <p v-else-if="messages.length === 0">暂无历史对话记录，开始和AI助手聊天吧！</p> -->
             </div>
 
             <div class="function">
@@ -81,20 +81,26 @@
         </div>
       </div>
     </div>
+    <message-box ref="messageBox"></message-box>
   </div>
 </template>
 
 <script>
 import { marked } from 'marked'
+import MessageBox from '@/components/MessageBox.vue'
+
 export default {
+  components: {
+    MessageBox,
+  },
   data() {
     return {
       isUserInfoVisible: false,
       inputMessage: '',
       reader: null,
       messages: [],
-      apiUrl: 'http://127.0.0.1:8080/streamchat',
-      apiUrlconversion: 'http://127.0.0.1:8080/conversation',
+      apiUrl: 'http://localhost:8080/streamchat',
+      apiUrlconversion: 'http://localhost:8080/conversation',
       isRequesting: false,
       isLoading: false, // 加载历史记录的状态
       abortController: null,
@@ -102,7 +108,7 @@ export default {
         name: '用户',
         id: '5BDeuOIf',
         email: 'user@example.com',
-        conversationId: '0',
+        conversationId: '7485033633959460915',
         schoolName: '南开大学',
         chatId: '',
       },
@@ -111,6 +117,9 @@ export default {
     }
   },
   methods: {
+    showMessage(message, type = 'info') {
+      this.$refs.messageBox.show(message, type)
+    },
     logout() {
       localStorage.removeItem('userInfo') // 清除用户信息
       // 清除本地存储的 chatId 和 conversationId
@@ -181,7 +190,7 @@ export default {
           console.error('没有聊天记录')
         }
       } catch (error) {
-        alert('加载聊天记录失败，请稍后再试。')
+        this.showMessage('加载聊天记录失败，请稍后再试。', 'error')
         console.error('加载聊天记录失败:', error)
       } finally {
         this.isLoading = false // 加载完成，恢复正常状态
@@ -193,9 +202,6 @@ export default {
         console.log('结束对话...')
         this.isRequesting = false
         this.stopChat()
-        // this.abortController.abort()
-        // this.messages.push({ role: 'system', content: '对话已终止。' })
-        // this.scrollToBottom()
         return
       }
 
@@ -203,9 +209,6 @@ export default {
       if (userMessage === '') return
 
       this.isRequesting = true
-      // this.abortController = new AbortController()
-      // const signal = this.abortController.signal
-
       this.messages.push({ role: 'user', content: userMessage })
       this.inputMessage = ''
       this.scrollToBottom()
@@ -216,10 +219,9 @@ export default {
         const response = await fetch(this.apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          // signal: signal,
           body: JSON.stringify({
             userId: this.userInfo.id,
-            conversationId: '7485033633959460915',
+            conversationId: this.userInfo.conversationId,
             schoolName: this.userInfo.schoolName,
             content: userMessage,
           }),
@@ -230,12 +232,8 @@ export default {
         const decoder = new TextDecoder()
         let buffer = ''
         while (true) {
-          // if (isStopped) {
-          //   break // 如果标志位为 true，停止接收数据
-          // }
           const { value, done } = await this.reader.read()
           if (done) {
-            // document.getElementById('stopButton').disabled = true
             break
           }
 
@@ -247,24 +245,17 @@ export default {
             if (jsonData.type == 'id') {
               this.userInfo.chatId = jsonData.chat_id
               this.userInfo.conversationId = jsonData.conversation_id
-              // 存储到 localStorage
               localStorage.setItem('chatId', jsonData.chat_id)
               localStorage.setItem('conversationId', jsonData.conversation_id)
               buffer = ''
-              // document.getElementById('stopButton').disabled = false
               continue
             } else if (jsonData.type == 'verbose') {
               console.log('verbose', jsonData.verbose)
               buffer = ''
               continue
             } else if (jsonData.type == 'text') {
-              // mes += jsonData.content
-              // //
-              // this.messages.at(-1).content = mes
-              // this.scrollToBottom()
-              // buffer = ''
               mes += jsonData.content
-              this.messages.at(-1).content = marked(mes) // 渲染 Markdown
+              this.messages.at(-1).content = marked(mes)
               this.scrollToBottom()
               buffer = ''
               continue
@@ -274,7 +265,6 @@ export default {
           } catch (e) {
             continue
           }
-          // this.messages.at(-1).content = mes
           this.scrollToBottom()
         }
       } catch (error) {
@@ -284,6 +274,7 @@ export default {
           console.error('API 请求失败:', error)
           mes = '服务器错误，请稍后再试！'
           this.messages.at(-1).content = mes
+          // this.showMessage('服务器错误，请稍后再试！', 'error')
         }
       }
 
@@ -312,8 +303,6 @@ export default {
         if (this.reader) {
           this.reader.cancel()
         }
-        // this.isStopped = true // 设置标志位为 true
-        // document.getElementById("stopButton").disabled = true;
       } catch (error) {
         console.error('取消请求错误:', error)
       }
@@ -719,8 +708,15 @@ body {
   align-items: center;
   height: 100%;
   color: #3498db;
-  font-size: 18px;
+  font-size: 30px;
   font-weight: 500;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  z-index: 1000;
 }
 
 /* 滚动条美化 */

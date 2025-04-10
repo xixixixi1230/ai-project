@@ -84,12 +84,14 @@
         </div>
       </form>
     </div>
+    <message-box ref="messageBox"></message-box>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import MessageBox from '@/components/MessageBox.vue'
 
 const username = ref('')
 const phone = ref('')
@@ -166,14 +168,14 @@ const validateConfirmPassword = () => {
 }
 
 const handleRegister = async () => {
-  console.log('提交注册...') // 这里检查是否触发
+  console.log('提交注册...')
   validateUsername()
   validatePhone()
   validateEmail()
   validateSchool()
   validatePassword()
   validateConfirmPassword()
-  console.log('表单验证完成') // 这里检查是否通过验证
+  console.log('表单验证完成')
 
   if (hasErrors.value) return
 
@@ -193,16 +195,21 @@ const handleRegister = async () => {
     const result = await response.json()
     if (result.status === 200) {
       console.log('注册成功:', result.message)
-      router.push('/login')
+      messageBox.value.show('注册成功，即将跳转到登录页面', 'success')
+      setTimeout(() => {
+        router.push('/login')
+      }, 1500)
     } else {
       console.error('注册失败:', result.message)
-      alert(`注册失败`)
+      messageBox.value.show(result.message || '注册失败', 'error')
     }
   } catch (error) {
     console.error('注册请求失败:', error)
-    alert('注册请求失败')
+    messageBox.value.show('注册请求失败，请稍后再试', 'error')
   }
 }
+
+const messageBox = ref(null)
 
 watch(username, validateUsername)
 watch(phone, validatePhone)

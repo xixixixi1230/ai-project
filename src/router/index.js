@@ -4,6 +4,7 @@ import Register from '../views/register/index.vue'
 import ForgetPassword from '../views/forgot-password/index.vue'
 import Home from '../views/home/index.vue'
 import Home1 from '../views/home1/index.vue'
+import Admin from '../views/admin/index.vue'
 
 const routes = [
   {
@@ -29,13 +30,19 @@ const routes = [
     path: '/home',
     name: 'Home',
     component: Home,
-    // meta: { requiresAuth: true } // 需要登录
+    // meta: { requiresAuth: true }
   },
   {
     path: '/home1',
     name: 'Home1',
     component: Home1,
-    meta: { requiresAuth: true } // 需要登录
+    // meta: { requiresAuth: true } // 需要登录
+  },
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: Admin,
+    // meta: { requiresAuth: true, requiresAdmin: true }
   }
 ]
 
@@ -46,12 +53,14 @@ const router = createRouter({
 
 // **全局前置守卫：检查用户是否已登录**
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = !!localStorage.getItem('userInfo') // 检查 localStorage 是否有用户信息
-
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login') // 未登录，跳转到登录页
+  const userInfo = JSON.parse(localStorage.getItem('userInfo'))
+  
+  if (to.meta.requiresAuth && !userInfo) {
+    next('/login')
+  } else if (to.meta.requiresAdmin && userInfo && !userInfo.isAdmin) {
+    next('/')
   } else {
-    next() // 允许访问
+    next()
   }
 })
 
