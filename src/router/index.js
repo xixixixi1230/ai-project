@@ -14,35 +14,46 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: Login
+    component: Login,
+    meta: { title: '登录 - AI思政助手' }
   },
   {
     path: '/register',
     name: 'Register',
-    component: Register
+    component: Register,
+    meta: { title: '注册 - AI思政助手' }
   },
   {
     path: '/forgot-password',
     name: 'ForgotPassword',
-    component: ForgetPassword
+    component: ForgetPassword,
+    meta: { title: '找回密码 - AI思政助手' }
   },
   {
     path: '/home',
     name: 'Home',
     component: Home,
-    // meta: { requiresAuth: true }
+    meta: { 
+      requiresAuth: true, 
+      allowGuest: true,
+      title: 'AI思政助手 - 聊天'
+    }
   },
   {
     path: '/home1',
     name: 'Home1',
     component: Home1,
-    // meta: { requiresAuth: true } // 需要登录
+    meta: { title: 'AI思政助手' }
   },
   {
     path: '/admin',
     name: 'Admin',
     component: Admin,
-    // meta: { requiresAuth: true, requiresAdmin: true }
+    meta: { 
+      requiresAuth: true, 
+      requiresAdmin: true,
+      title: '管理后台 - AI思政助手'
+    }
   }
 ]
 
@@ -53,15 +64,50 @@ const router = createRouter({
 
 // **全局前置守卫：检查用户是否已登录**
 router.beforeEach((to, from, next) => {
+  // 设置页面标题
+  if (to.meta.title) {
+    document.title = to.meta.title
+  }
+
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
   
-  if (to.meta.requiresAuth && !userInfo) {
-    next('/login')
-  } else if (to.meta.requiresAdmin && userInfo && !userInfo.isAdmin) {
-    next('/')
-  } else {
-    next()
+  // 检查是否需要身份验证
+  if (to.meta.requiresAuth) {
+    // 如果没有用户信息，且不是游客可访问的页面，跳转到登录
+    if (!userInfo && !to.meta.allowGuest) {
+      next('/login')
+      return
+    }
+    
+    // 如果是游客可访问的页面
+    if (to.meta.allowGuest) {
+      // 如果没有用户信息
+      if (!userInfo) {
+        // 检查是否是通过游客模式进入
+        const isGuestMode = localStorage.getItem('isGuestMode')
+        if (!isGuestMode) {
+          next('/login')
+          return
+        }
+      }
+    }
   }
+  
+  // 需要管理员权限的页面
+  if (to.meta.requiresAdmin) {
+    if (!userInfo) {
+      // 如果未登录，直接跳转到登录页
+      next('/login')
+      return
+    }
+    if (userInfo.level !== 1) {
+      // 如果已登录但不是管理员，跳转到首页
+      next('/home')
+      return
+    }
+  }
+  
+  next()
 })
 
 export default router

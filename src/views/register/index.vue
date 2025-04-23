@@ -180,7 +180,7 @@ const handleRegister = async () => {
   if (hasErrors.value) return
 
   try {
-    const response = await fetch('http://127.0.0.1:7001/user/register/', {
+    const response = await fetch('http://101.42.141.72:7001/user/register/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -193,6 +193,7 @@ const handleRegister = async () => {
     })
 
     const result = await response.json()
+    console.log('result:', result)
     if (result.status === 200) {
       console.log('注册成功:', result.message)
       messageBox.value.show('注册成功，即将跳转到登录页面', 'success')

@@ -25,14 +25,16 @@
             type="file"
             ref="fileInput"
             @change="handleFileSelect"
-            accept=".pdf,.txt,.doc,.docx"
+            accept=".pdf,.txt"
             style="display: none"
             multiple
           />
           <div class="upload-content">
             <i class="fa fa-cloud-upload"></i>
-            <p class="upload-text">点击或拖拽文件到此处上传,最多上传10个文件</p>
-            <p class="file-types">支持的文件类型: .pdf, .txt, .doc, .docx</p>
+            <p class="upload-text">
+              点击或拖拽文件到此处上传，最多上传10个文件，每个文件不超过100MB，PDF最多500页
+            </p>
+            <p class="file-types">支持的文件类型: .pdf，.txt</p>
           </div>
         </div>
 
@@ -199,7 +201,7 @@ export default {
       fileList: [],
       currentPage: 1,
       pageSize: 10,
-      apiUrl: 'http://localhost:8080',
+      apiUrl: 'http://101.42.141.72:8080',
       isDragging: false,
       jumpPage: 1,
       totalPages: 1,
@@ -302,7 +304,7 @@ export default {
       const checkAndSend = (files, fileDataArray) => {
         if (processedFiles === files.length) {
           const xhr = new XMLHttpRequest()
-          xhr.open('POST', 'http://localhost:8080/upload', true)
+          xhr.open('POST', 'http://101.42.141.72:8080/upload', true)
           xhr.setRequestHeader('Content-Type', 'application/json')
           xhr.onreadystatechange = () => {
             if (xhr.readyState === 4) {

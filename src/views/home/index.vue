@@ -1,83 +1,79 @@
 <template>
   <div class="container">
-    <!-- 用户头像 -->
-    <div class="user-avatar" @click="toggleUserInfo">
-      <img src="../../static/images/user.png" alt="User Avatar" />
-    </div>
-    <!-- 用户信息，位置固定在头像下方 -->
-    <div class="user-info" v-if="isUserInfoVisible">
-      <div class="popup-content">
-        <p><strong>名称:</strong> {{ userInfo.name }}</p>
-        <p><strong>ID :</strong> {{ userInfo.id }}</p>
-        <p><strong>邮箱:</strong> {{ userInfo.email }}</p>
-        <p><strong>学校:</strong> {{ userInfo.schoolName }}</p>
-        <button class="logout-btn" @click="logout">退出登录</button>
+    <div class="header">
+      <h1>数字辅导员</h1>
+      <!-- 用户头像 -->
+      <div class="user-avatar" @click="toggleUserInfo">
+        <img src="/images/user.png" alt="User Avatar" />
       </div>
     </div>
 
-    <!-- 左侧菜单栏 -->
+    <!-- 用户信息弹窗 -->
+    <div class="user-info" v-if="isUserInfoVisible">
+      <div class="popup-content">
+        <div v-if="isGuest" class="guest-mode">
+          <div class="guest-icon">👋</div>
+          <!-- <p class="guest-title">游客模式</p> -->
+          <p class="guest-desc">游客模式,登录账号可以保存聊天记录哦</p>
+          <button class="login-btn" @click="goToLogin">立即登录</button>
+        </div>
+        <template v-else>
+          <p><strong>名称:</strong> {{ userInfo.name }}</p>
+          <p><strong>ID :</strong> {{ userInfo.id }}</p>
+          <p><strong>邮箱:</strong> {{ userInfo.email }}</p>
+          <p><strong>学校:</strong> {{ userInfo.schoolName }}</p>
+          <button class="logout-btn" @click="logout">退出登录</button>
+        </template>
+      </div>
+    </div>
 
-    <!-- 主内容区域 -->
-    <div class="main-content">
-      <div class="row">
-        <div class="box">
-          <div class="title">
-            <h2 class="text-center" style="color: #3498db">数字辅导员</h2>
+    <!-- 主聊天区域 -->
+    <div class="chat-container">
+      <div class="chat-messages" ref="chatMessages">
+        <div v-for="(message, index) in messages" :key="index" :class="['message', message.role]">
+          <div class="message-header">
+            <div class="avatar-wrapper">
+              <img
+                :src="message.role === 'user' ? '/images/user.png' : '/images/robot.png'"
+                :alt="message.role === 'user' ? 'User Avatar' : 'AI Avatar'"
+                class="avatar-image"
+              />
+            </div>
+            <span class="role-label">{{ message.role === 'user' ? '用户' : 'AI数字辅导员' }}</span>
           </div>
-          <div class="answer">
-            <!-- <div class="tips">
-              <h4 class="text-center">欢迎使用AI思政聊天平台</h4>
-            </div> -->
-            <div id="chatWindow" ref="chatWindowRef">
-              <div v-for="(message, index) in messages" :key="index" class="message-bubble">
-                <div
-                  :class="
-                    message.role === 'user' ? 'request-icon chat-icon' : 'response-icon chat-icon'
-                  "
-                ></div>
-                <div class="message-text">
-                  <div v-html="message.content"></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 加载提示 -->
-
-            <div v-if="isLoading" class="loading-message">
-              <p v-if="isLoading">正在加载历史对话...</p>
-              <!-- <p v-else-if="messages.length === 0">暂无历史对话记录，开始和AI助手聊天吧！</p> -->
-            </div>
-
-            <div class="function">
-              <div class="ipt">
-                <div class="col-xs-12">
-                  <textarea
-                    v-model="inputMessage"
-                    id="chatInput"
-                    class="form-control"
-                    rows="1"
-                  ></textarea>
-                </div>
-                <button
-                  @click="sendMessage"
-                  id="chatBtn"
-                  :class="isRequesting ? 'btn btn-danger' : 'btn btn-primary'"
-                  :disabled="isLoading"
-                  type="button"
-                >
-                  {{ isRequesting ? 'End' : 'Go!' }}
-                </button>
-              </div>
-            </div>
+          <div class="message-content" v-html="message.content"></div>
+        </div>
+        <div v-if="showEmptyChatMessage" class="empty-chat-message">
+          <div class="welcome-title">同学你好！</div>
+          <div class="welcome-subtitle">
+            我是一位数字辅导员，随时随地为你解决校园生活相关问题，请开始对话吧！
           </div>
-          <!-- <footer class="foot" style="margin-top: 20px">
-            <p class="lead text-center">祝你大学生活欢乐愉快！</p>
-            <p class="lead text-center">
-              <a href="https://cs.nankai.edu.cn/" target="_blank"
-                ><i class="fa fa-link fa-lg" aria-hidden="true"></i>&nbsp; 联系我们</a
-              >
-            </p>
-          </footer> -->
+        </div>
+      </div>
+
+      <!-- 加载提示 -->
+      <div v-if="isLoading" class="loading-message">
+        <p>正在加载历史对话...</p>
+      </div>
+
+      <!-- 输入区域 -->
+      <div class="input-container">
+        <div class="input-wrapper">
+          <textarea
+            v-model="inputMessage"
+            id="chatInput"
+            class="chat-input"
+            placeholder="请输入您的问题..."
+            rows="1"
+          ></textarea>
+          <button
+            @click="sendMessage"
+            class="send-button"
+            :class="{ 'is-requesting': isRequesting }"
+            :disabled="isLoading"
+          >
+            <i :class="isRequesting ? 'fa fa-stop' : 'fa fa-paper-plane'"></i>
+          </button>
         </div>
       </div>
     </div>
@@ -99,17 +95,20 @@ export default {
       inputMessage: '',
       reader: null,
       messages: [],
-      apiUrl: 'http://localhost:8080/streamchat',
-      apiUrlconversion: 'http://localhost:8080/conversation',
+      // apiUrl: 'http://101.42.141.72:8080/streamchat',
+      apiUrl: '/api/streamchat',
+      apiUrlconversion: 'http://101.42.141.72:8080/conversation',
       isRequesting: false,
       isLoading: false, // 加载历史记录的状态
+      showEmptyChatMessage: false, // 新增：控制空聊天提示的显示
       abortController: null,
+      isGuest: false, // 新增：是否为游客模式
       userInfo: {
-        name: '用户',
-        id: '5BDeuOIf',
-        email: 'user@example.com',
-        conversationId: '7485033633959460915',
-        schoolName: '南开大学',
+        name: '',
+        id: '',
+        email: '',
+        conversationId: '',
+        schoolName: '',
         chatId: '',
       },
       dialogs: [],
@@ -125,6 +124,8 @@ export default {
       // 清除本地存储的 chatId 和 conversationId
       localStorage.removeItem('chatId')
       localStorage.removeItem('conversationId')
+      // 清除游客模式标记
+      localStorage.removeItem('isGuestMode')
       this.$router.push('/login') // 跳转到登录页面
     },
     toggleUserInfo() {
@@ -141,6 +142,8 @@ export default {
         this.userInfo.id = storedUserInfo.userId
         this.userInfo.email = storedUserInfo.email
         this.userInfo.schoolName = storedUserInfo.school
+        // 检查是否为游客模式
+        this.isGuest = storedUserInfo.userId === '123456'
       }
       // 读取 chatId 和 conversationId
       const chatId = localStorage.getItem('chatId')
@@ -152,6 +155,8 @@ export default {
 
     async loadChatHistory() {
       this.isLoading = true // 开始加载，设置加载状态
+      console.log('加载聊天记录...')
+      console.log(this.userInfo.id)
 
       try {
         const response = await fetch(this.apiUrlconversion, {
@@ -185,13 +190,17 @@ export default {
           })
 
           this.messages = chatHistory
+          this.showEmptyChatMessage = false // 有历史记录时不显示提示
           this.scrollToBottom()
         } else {
           console.error('没有聊天记录')
+          console.log(this.showEmptyChatMessage)
+          this.showEmptyChatMessage = true // 没有历史记录时显示提示
         }
       } catch (error) {
         this.showMessage('加载聊天记录失败，请稍后再试。', 'error')
         console.error('加载聊天记录失败:', error)
+        this.showEmptyChatMessage = true // 加载失败时也显示提示
       } finally {
         this.isLoading = false // 加载完成，恢复正常状态
       }
@@ -205,16 +214,25 @@ export default {
         return
       }
 
+      console.log('发送消息...', this.userInfo.conversationId)
+
       const userMessage = this.inputMessage.trim()
       if (userMessage === '') return
 
       this.isRequesting = true
       this.messages.push({ role: 'user', content: userMessage })
       this.inputMessage = ''
+      // 重置输入框高度
+      const textarea = document.getElementById('chatInput')
+      if (textarea) {
+        textarea.style.height = '1.5rem'
+      }
+      this.showEmptyChatMessage = false
       this.scrollToBottom()
       let mes = ''
       this.messages.push({ role: 'bot', content: mes })
       this.scrollToBottom()
+
       try {
         const response = await fetch(this.apiUrl, {
           method: 'POST',
@@ -226,7 +244,19 @@ export default {
             content: userMessage,
           }),
         })
-        if (!response.ok) throw new Error(`请求失败，状态码：${response.status}`)
+
+        if (!response.ok) {
+          throw new Error(`请求失败，状态码：${response.status}`)
+        }
+
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          // 如果响应是JSON格式，直接解析处理
+          const jsonData = await response.json()
+          if (jsonData.code === 500) {
+            throw new Error(jsonData.msg || '服务器错误')
+          }
+        }
 
         this.reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -242,6 +272,15 @@ export default {
           try {
             const jsonData = JSON.parse(buffer)
             console.log('jsonData', jsonData)
+            if (jsonData.code === 500) {
+              // 处理错误响应
+              this.showMessage(jsonData.msg || '服务器错误，请稍后重试', 'error')
+              this.messages.pop() // 移除最后一条等待回复的消息
+              buffer = ''
+              this.isRequesting = false
+              return
+            }
+
             if (jsonData.type == 'id') {
               this.userInfo.chatId = jsonData.chat_id
               this.userInfo.conversationId = jsonData.conversation_id
@@ -284,7 +323,7 @@ export default {
 
     async stopChat() {
       console.log('停止对话...')
-      const cancelApiUrl = 'http://localhost:8080/cancel' // 你的取消接口地址
+      const cancelApiUrl = 'http://101.42.141.72:8080/cancel' // 你的取消接口地址
       const requestData = {
         chatId: this.userInfo.chatId,
         conversationId: this.userInfo.conversationId,
@@ -310,7 +349,7 @@ export default {
 
     scrollToBottom() {
       this.$nextTick(() => {
-        const chatWindow = this.$refs.chatWindowRef
+        const chatWindow = this.$refs.chatMessages
         if (chatWindow) {
           chatWindow.scrollTop = chatWindow.scrollHeight
         } else {
@@ -331,6 +370,29 @@ export default {
       textarea.style.height = 'auto'
       const height = Math.min(textarea.scrollHeight, 150) // 最大高度150px
       textarea.style.height = height + 'px'
+    },
+
+    goToLogin() {
+      this.$router.push('/login')
+    },
+
+    copyMessage(content) {
+      // 创建一个临时文本区域
+      const textarea = document.createElement('textarea')
+      // 移除HTML标签
+      const plainText = content.replace(/<[^>]+>/g, '')
+      textarea.value = plainText
+      document.body.appendChild(textarea)
+      textarea.select()
+
+      try {
+        document.execCommand('copy')
+        this.showMessage('复制成功！', 'success')
+      } catch (err) {
+        this.showMessage('复制失败，请手动复制。', 'error')
+      }
+
+      document.body.removeChild(textarea)
     },
   },
   mounted() {
@@ -359,239 +421,139 @@ export default {
 @import url('../../static/font-awesome/css/font-awesome.min.css');
 @import url('../../static/css/github-dark-dimmed.min.css');
 
-body {
-  background-color: var(--bg-color);
-}
-
-html,
-body {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
 .container {
-  height: 100%;
-  overflow: hidden;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-}
-
-.form-control {
-  border-color: #e0e0e0 !important;
-  padding: 12px !important;
-  border-radius: 20px !important;
-  transition: all 0.3s ease;
-  background-color: white !important;
-}
-
-.form-control:focus {
-  border-color: #3498db !important;
-  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.15) !important;
-}
-
-.title {
+  height: 100vh;
   width: 100%;
-  padding: 20px 0;
-  background: linear-gradient(135deg, #3498db, #2980b9);
-  border-radius: 10px 10px 0 0;
-  margin-bottom: 20px;
-}
-
-.title h2 {
-  margin: 0;
-  color: #010101 !important;
-  font-size: 24px;
-  font-weight: 600;
-  text-shadow: none;
-}
-
-.user-avatar {
-  position: fixed;
-  top: 30px;
-  right: 20px;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  overflow: hidden;
-  z-index: 10;
-  border: 3px solid #3498db;
-  padding: 2px;
-  cursor: pointer;
-  transition:
-    transform 0.3s ease,
-    box-shadow 0.3s ease;
-}
-
-.user-avatar:hover {
-  transform: scale(1.05);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-}
-
-.user-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.user-info {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  width: 280px;
-  padding: 20px;
-  background-color: white;
-  border-radius: 15px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  z-index: 20;
-  animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.popup-content h4 {
-  margin-bottom: 15px;
-  color: #2c3e50;
-}
-
-.popup-content p {
-  margin-bottom: 12px;
-  color: #34495e;
-  font-size: 14px;
-}
-
-.row {
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  border-radius: 15px;
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 0;
-  background: white;
-}
-
-.answer {
-  width: 100%;
-  position: relative;
-  height: 90vh; /* 设置为视口高度的90%，留出一些空间给标题 */
-  padding: 20px;
-}
-
-.answer .function {
-  padding: 0;
-  width: 100%;
-  position: absolute;
-  bottom: 20px;
-  display: flex;
-  justify-content: center;
-}
-
-.answer .tips {
-  width: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  background-color: #ffffff;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  padding: 1rem 2rem;
+  background: #f7f7f8;
+  border-bottom: 1px solid #e5e5e5;
 }
 
-.answer .tips h4 {
-  color: #3498db;
-  font-size: 18px;
-  font-weight: 500;
+.header h1 {
+  font-size: 1.5rem;
+  color: #444;
+  margin: 0;
+  font-weight: 600;
 }
 
-.answer .ipt {
-  display: flex;
-  align-items: flex-start;
-  padding: 10px 20px;
-  border-radius: 15px;
-  min-height: 50px;
-  max-height: 200px;
-  background: white;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  width: 80%;
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-.answer .ipt:focus-within {
-  border-color: #3498db;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
-
-.answer .ipt .col-xs-12 {
+.chat-container {
   flex: 1;
-  margin-right: 10px;
-}
-
-.answer .ipt textarea {
-  resize: none;
-  overflow-y: auto;
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-  font-size: 20px !important;
-  padding: 8px;
-  width: 100%;
-  min-height: 24px;
-  max-height: 150px;
-  line-height: 1.5;
-  color: #333;
-  background: transparent !important;
-}
-
-.answer .ipt textarea:focus {
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-}
-
-.answer .ipt textarea::placeholder {
-  color: #95a5a6;
-}
-
-.answer #chatWindow {
-  width: 100%;
-  height: calc(100% - 100px); /* 减去输入框的高度 */
-  overflow-y: auto;
-  padding: 10px;
-}
-
-.message-bubble {
-  padding: 15px;
-  margin: 15px 0;
   display: flex;
-  align-items: flex-start;
-  animation: fadeIn 0.3s ease;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  position: relative;
+  background-color: #ffffff;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0;
+  background-color: #ffffff;
 }
 
-.message-bubble .message-text {
+.message {
+  padding: 0.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.message:hover {
+  background-color: rgba(243, 244, 246, 0.8);
+}
+
+/* 确保消息内容在悬停时也能正确显示 */
+.message:hover .message-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* 调整消息内容的样式以配合悬停效果 */
+.message .message-content {
+  width: auto;
+  font-size: 20px !important;
+  line-height: 1.5;
+  padding-left: 32px;
+  position: relative;
+}
+
+.message-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.message .message-content {
+  width: auto;
+  font-size: 20px;
+  line-height: 1.5;
+  padding-left: 32px; /* 头像宽度(24px) + 间距(8px) */
+  position: relative;
+}
+
+.message .message-content p {
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+  font-size: 20px;
+}
+
+/* 移除多余的样式 */
+.message .message-content::before {
+  display: none;
+}
+
+.avatar-wrapper {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  flex-shrink: 0;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.role-label {
+  font-size: 20px;
+  color: #1f2937;
+  font-weight: 700;
+}
+
+/* .message-content {
+  font-size: 20px;
+  line-height: 1.75;
+  color: #1f2937;
+  padding-left: calc(24px + 8px);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 2px;
+  margin-bottom: 2px;
+} */
+.message .message-content {
   width: auto;
   max-width: calc(100% - 60px);
   font-size: 20px !important;
@@ -599,18 +561,18 @@ body {
   margin-left: 15px;
   padding: 12px 16px;
   border-radius: 15px;
-  background: #f8f9fa;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  /* background: #f8f9fa;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); */
   position: relative;
 }
 
-.message-bubble .message-text p {
+.message .message-content p {
   margin: 0;
   line-height: 1.5;
   font-size: 16px !important;
 }
 
-.message-bubble .message-text::before {
+.message .message-content::before {
   content: '';
   position: absolute;
   left: -8px;
@@ -620,121 +582,286 @@ body {
   border-right: 8px solid #f8f9fa;
 }
 
-.message-bubble .chat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+/* 处理引用和列表的样式 */
+.message-content blockquote,
+.message-content ul,
+.message-content ol {
+  margin: 4px 0;
 }
 
-.message-bubble .request-icon {
-  background-image: url(../../static/images/user.png);
+/* 处理链接的样式 */
+.message-content a {
+  color: #2563eb;
+  text-decoration: none;
 }
 
-.message-bubble .response-icon {
-  background-image: url(../../static/images/robot.png);
+.message-content a:hover {
+  text-decoration: underline;
 }
 
-.answer #chatBtn {
-  align-self: flex-end;
-  margin-bottom: 8px;
-  padding: 8px 20px;
-  font-size: 14px;
-  border-radius: 20px;
-  background: #3498db;
+/* 当消息是机器人回复时，增加一点底部边距 */
+.message.bot {
+  margin-bottom: 0.5rem;
+}
+
+/* 当消息是用户输入时，增加一点顶部边距 */
+.message.user {
+  margin-top: 0.5rem;
+}
+
+/* 输入区域样式 */
+.input-container {
+  border-top: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  padding: 1rem;
+  position: relative;
+}
+
+.input-wrapper {
+  max-width: 80%;
+  margin: 0 auto;
+  background-color: #f3f3f7;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  transition: all 0.2s;
+}
+
+.input-wrapper:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.chat-input {
+  flex: 1;
+  height: 60px;
+  min-height: 60px;
+  max-height: 200px;
+  padding: 0.5rem;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1.6;
+  color: #374151;
+  resize: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+.chat-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-input::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+
+.chat-input::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.8);
+}
+
+.chat-input:focus {
+  outline: none;
+}
+
+.chat-input::placeholder {
+  color: #9ca3af;
+}
+
+.send-button {
+  padding: 0.375rem;
+  border-radius: 0.375rem;
+  background-color: #2563eb;
   color: white;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
 
-.answer #chatBtn:hover {
-  background: #2980b9;
-  transform: translateY(-1px);
+.send-button:hover {
+  background-color: #1d4ed8;
 }
 
-.answer #chatBtn.btn-danger {
-  background-color: #e74c3c !important;
-  border-color: #e74c3c !important;
+.send-button.is-requesting {
+  background-color: #dc2626;
 }
 
-.answer #chatBtn.btn-danger:hover {
-  background-color: #c0392b !important;
-  box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+.send-button.is-requesting:hover {
+  background-color: #b91c1c;
 }
 
-.foot {
-  padding: 20px;
+/* 空消息提示 */
+.empty-chat-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   text-align: center;
-  background: #f8f9fa;
-  border-radius: 0 0 15px 15px;
+  padding: 2rem;
+  color: #1f2937;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.4));
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  box-sizing: border-box;
 }
 
-.foot p a {
-  color: #3498db;
-  text-decoration: none;
+.welcome-title {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: #2563eb;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.welcome-subtitle {
+  font-size: 20px;
+  color: #4b5563;
+  line-height: 1.6;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* 加载提示 */
+.loading-message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.loading-message p {
+  background-color: #ffffff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #6b7280;
+  font-size: 0.9375rem;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .container {
+    width: 100%;
+    padding: 0;
+  }
+
+  .message {
+    max-width: 95%;
+  }
+
+  .header {
+    padding: 0.75rem 1rem;
+  }
+
+  .input-container {
+    padding: 0.75rem 1rem;
+  }
+
+  .chat-messages {
+    padding: 1rem;
+  }
+
+  .message-content {
+    padding: 0.875rem 1rem;
+  }
+
+  .user-info {
+    width: calc(100% - 2rem);
+    right: 1rem;
+  }
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-info {
+  position: absolute;
+  top: 60px;
+  right: 2rem;
+  width: 280px;
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 50;
+}
+
+.popup-content {
+  padding: 1.5rem;
+}
+
+.guest-mode {
+  text-align: center;
+}
+
+.guest-icon {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.guest-desc {
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+
+.login-btn,
+.logout-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: none;
   font-weight: 500;
-  transition: color 0.3s ease;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
-.foot p a:hover {
-  color: #2980b9;
+.login-btn {
+  background-color: #2563eb;
+  color: white;
+}
+
+.login-btn:hover {
+  background-color: #1d4ed8;
 }
 
 .logout-btn {
-  background-color: #e74c3c;
+  background-color: #dc2626;
   color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 20px;
-  cursor: pointer;
-  width: 100%;
-  margin-top: 15px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-.message-bubble .message-text .logout-btn:hover {
-  background-color: #c0392b;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
 }
 
-.loading-message {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  color: #3498db;
-  font-size: 30px;
-  font-weight: 500;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  z-index: 1000;
-}
-
-/* 滚动条美化 */
-.answer #chatWindow::-webkit-scrollbar {
-  width: 8px;
-}
-
-.answer #chatWindow::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.answer #chatWindow::-webkit-scrollbar-thumb {
-  background: #3498db;
-  border-radius: 4px;
-}
-
-.answer #chatWindow::-webkit-scrollbar-thumb:hover {
-  background: #2980b9;
+.logout-btn:hover {
+  background-color: #b91c1c;
 }
 </style>

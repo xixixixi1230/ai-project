@@ -17,13 +17,13 @@ export default defineConfig({
   },
   server: {
     port: 5500, // 设置运行端口
-    // proxy: {
-    //   '/user': {
-    //     target: 'https://38cr3ii47631.vicp.fun',  // 后端服务器地址
-    //     changeOrigin: true,  // 修改请求头中的 origin
-    //     secure: false,  // 如果使用 https，且自签名证书，需要设置为 false
-    //     rewrite: (path) => path.replace(/^\/user/, ''),  // 去掉前缀 /user
-    //   },
-    // },
+    proxy: {
+      '/api': {
+        target: 'http://101.42.141.72:8080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
+
   },
 })
