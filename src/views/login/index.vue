@@ -5,30 +5,89 @@
         <h2>用户登录</h2>
         <p>欢迎回来，请登录您的账号</p>
       </div>
-      <form @submit.prevent="handleLogin" class="floating-form">
-        <div class="input-group">
+      <!-- 登录方式切换按钮 -->
+      <div class="login-type-switch">
+        <span :class="{ active: loginType === 'code' }" @click="loginType = 'code'"
+          >邮箱验证码登录</span
+        >
+        <span :class="{ active: loginType === 'password' }" @click="loginType = 'password'"
+          >账号密码登录</span
+        >
+      </div>
+      <!-- 账号密码登录表单 -->
+      <form v-if="loginType === 'password'" @submit.prevent="handleLogin" class="floating-form">
+        <div class="verify-code-row">
           <input
             id="username"
             v-model.trim="loginForm.username"
             type="text"
             autocomplete="off"
             @input="validateInput"
+            placeholder="请输入手机号"
+            class="verify-code-input"
             required
           />
-          <label for="username">手机号</label>
-          <span class="highlight"></span>
         </div>
-        <div class="input-group">
+        <div class="verify-code-row">
           <input
             id="password"
             v-model.trim="loginForm.password"
             type="password"
             autocomplete="off"
             @input="validateInput"
+            placeholder="请输入密码"
+            class="verify-code-input"
             required
           />
-          <label for="password">密码</label>
-          <span class="highlight"></span>
+        </div>
+        <div class="error-message" v-if="errorMsg">{{ errorMsg }}</div>
+        <button type="submit" class="submit-btn">
+          <span>登录</span>
+          <i class="arrow-icon"></i>
+        </button>
+        <div class="form-footer">
+          <span>还没有账号？</span>
+          <router-link to="/register">立即注册</router-link>
+          <span>&nbsp;&nbsp;| &nbsp;&nbsp;</span>
+          <a href="#" @click.prevent="showGuestDialog">游客模式</a>
+        </div>
+      </form>
+      <!-- 验证码登录表单 -->
+      <form v-else @submit.prevent="handleCodeLogin" class="floating-form">
+        <div class="verify-code-row">
+          <input
+            v-model.trim="codeForm.phone"
+            type="text"
+            placeholder="请输入邮箱（请先注册）"
+            class="verify-code-input"
+            required
+          />
+        </div>
+        <div class="verify-code-row">
+          <input
+            v-model.trim="codeForm.code"
+            type="text"
+            placeholder="请输入验证码"
+            class="verify-code-input"
+            required
+          />
+          <button type="button" class="get-code-link" :disabled="countdown > 0" @click="getCode">
+            <template v-if="countdown > 0">{{ countdown }}秒后重发</template>
+            <template v-else>获取验证码</template>
+          </button>
+        </div>
+        <div v-if="codeSent" class="code-sent-tip">
+          <svg class="sent-icon" width="18" height="18" viewBox="0 0 18 18">
+            <circle cx="9" cy="9" r="8" fill="none" stroke="#ff6600" stroke-width="1.5" />
+            <path
+              d="M5 9.5l2.5 2.5 5-5"
+              stroke="#ff6600"
+              stroke-width="1.5"
+              fill="none"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span>验证码已发送</span>
         </div>
         <div class="error-message" v-if="errorMsg">{{ errorMsg }}</div>
         <button type="submit" class="submit-btn">
@@ -73,16 +132,24 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 
 const router = useRouter()
 
-// 表单数据
+// 登录方式切换
+const loginType = ref('password')
+
+// 账号密码登录表单数据
 const loginForm = reactive({
   username: '',
   password: '',
+})
+// 验证码登录表单数据
+const codeForm = reactive({
+  phone: '',
+  code: '',
 })
 
 const errorMsg = ref('')
@@ -92,10 +159,10 @@ const loading = ref(false)
 const showDialog = ref(false)
 const guestSchool = ref('')
 
-// 跳转 SSO
-// function handleSSOLogin() {
-//   window.location.href = 'https://www.baidu.com' // 修改为实际 SSO 登录 URL
-// }
+// 验证码倒计时和发送状态
+const countdown = ref(0)
+const codeSent = ref(false)
+let timer = null
 
 // 登录处理
 const handleLogin = async () => {
@@ -116,10 +183,10 @@ const handleLogin = async () => {
 
   // 添加 loading 状态
   loading.value = true
-  console.log(loginForm)
+  console.log('loginForm:', loginForm)
   try {
-    // 发送登录请求
-    const response = await axios.post('http://101.42.141.72:7001/user/login/', {
+    // 发送登录请求 http://101.42.141.72:7001/user/login/
+    const response = await axios.post('/user/login/', {
       phone: loginForm.username,
       password: loginForm.password,
     })
@@ -142,17 +209,116 @@ const handleLogin = async () => {
       }
     } else {
       errorMessage(response.data.message) // 登录失败，显示错误信息
-      console.log('Error Message:', errorMsg.value)
+      console.log('Error Message 000:', errorMsg.value)
     }
   } catch (error) {
-    console.log('Error Message:', errorMsg.value)
+    console.log('Error Message 001:', errorMsg.value)
 
     errorMessage('登录失败，请稍后重试')
   } finally {
     loading.value = false // 重置 loading 状态
-    console.log('Error Message:', errorMsg.value)
+    console.log('Error Message 003:', errorMsg.value)
   }
 }
+
+// 验证码登录处理
+const handleCodeLogin = async () => {
+  if (loading.value) return // 防止重复点击
+
+  // 检查邮箱和验证码是否为空
+  if (!codeForm.phone || !codeForm.code) {
+    errorMessage('请填写邮箱和验证码')
+    return
+  }
+
+  // 添加 loading 状态
+  loading.value = true
+
+  try {
+    // 发送验证码登录请求
+    const response = await axios.post('/user/code/login', {
+      email: codeForm.phone,
+      code: codeForm.code,
+    })
+
+    if (response.data.status === 200) {
+      console.log('验证码登录成功')
+      // 登录成功，保存 authToken 到 Cookie，设置过期时间为 30 分钟
+      const { authToken, userName, userId, level } = response.data.data
+      const expires = new Date(Date.now() + 30 * 60 * 1000).toUTCString() // 30分钟过期
+      document.cookie = `authToken=${authToken}; path=/; expires=${expires}`
+
+      // 登录成功后存储用户信息，包含level
+      localStorage.setItem('userInfo', JSON.stringify({ userName, userId, level }))
+
+      // 根据level决定跳转路径
+      if (level === 1) {
+        router.push('/admin') // 管理员跳转到admin页面
+      } else {
+        router.push('/home') // 普通用户跳转到home页面
+      }
+    } else if (response.data.status === 201) {
+      errorMessage('验证码错误或已过期')
+    } else if (response.data.status === 203) {
+      errorMessage('用户尚未注册')
+    } else {
+      errorMessage(response.data.message || '登录失败')
+    }
+  } catch (error) {
+    console.error('验证码登录失败:', error)
+    errorMessage('登录失败，请稍后重试')
+  } finally {
+    loading.value = false // 重置 loading 状态
+  }
+}
+
+// 获取验证码（带倒计时和提示）
+const getCode = async () => {
+  if (!codeForm.phone) {
+    errorMessage('请先输入邮箱')
+    return
+  }
+
+  try {
+    // 发送获取验证码请求
+    const response = await axios.post(
+      '/user/code',
+      {
+        email: codeForm.phone,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      },
+    )
+
+    if (response.data.status === 200) {
+      // 验证码发送成功，开始倒计时
+      codeSent.value = true
+      countdown.value = 60
+      timer && clearInterval(timer)
+      timer = setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) {
+          clearInterval(timer)
+          timer = null
+          countdown.value = 0
+          codeSent.value = false
+        }
+      }, 1000)
+    } else {
+      errorMessage(response.data.message || '获取验证码失败')
+    }
+  } catch (error) {
+    errorMessage('获取验证码失败，请稍后重试')
+  }
+}
+
+// 页面卸载时清理定时器
+onUnmounted(() => {
+  timer && clearInterval(timer)
+})
 
 // 错误提示
 const errorMessage = (text) => {
@@ -228,7 +394,7 @@ onMounted(() => {
   max-width: 580px;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 24px;
-  padding: 40px 80px 40px 40px;
+  padding: 40px 60px 40px 60px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
   transform: translateY(0);
@@ -263,6 +429,40 @@ onMounted(() => {
   color: #95a5a6;
   font-size: 18px;
   opacity: 0.8;
+}
+
+.login-type-switch {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+  gap: 32px;
+}
+.login-type-switch span {
+  font-size: 18px;
+  color: #95a5a6;
+  cursor: pointer;
+  padding: 6px 18px;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+.login-type-switch span.active {
+  color: #3498db;
+  background: #f5f7fa;
+  font-weight: 700;
+  border-bottom: 2px solid #3498db;
+}
+
+/* 新增：移动端适配 */
+@media (max-width: 480px) {
+  .login-type-switch {
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .login-type-switch span {
+    font-size: 15px;
+    padding: 4px 8px;
+  }
 }
 
 .floating-form .input-group {
@@ -303,7 +503,7 @@ onMounted(() => {
 }
 
 .input-group input:focus + label,
-.input-group input:valid + label {
+.input-group input:not(:placeholder-shown) + label {
   top: 0;
   font-size: 14px;
   color: #3498db;
@@ -314,7 +514,6 @@ onMounted(() => {
   width: 100%;
   padding: 15px;
   /* margin: 20px 15px; */
-  margin-left: 15px;
   background: linear-gradient(45deg, #3498db, #2980b9);
   color: white;
   border: none;
@@ -378,6 +577,7 @@ onMounted(() => {
   font-size: 14px;
   text-align: center;
   margin-bottom: 20px;
+  margin-left: 30px;
   padding: 10px;
   border-radius: 8px;
   background: rgba(231, 76, 60, 0.1);
@@ -662,6 +862,136 @@ onMounted(() => {
     padding: 12px 14px;
     font-size: 15px;
   }
+}
+
+.phone-input-row {
+  display: flex;
+  align-items: center;
+  background: #f5f7fa;
+  border-radius: 16px;
+  padding: 0 18px;
+  height: 56px;
+  margin-bottom: 22px;
+}
+
+.country-code {
+  color: #5a6a85;
+  font-size: 20px;
+  font-weight: 500;
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+.arrow-down {
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+.phone-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  color: #5a6a85;
+  outline: none;
+  height: 56px;
+}
+
+.phone-input::placeholder {
+  color: #5a6a85;
+  opacity: 0.6;
+}
+
+.verify-code-row {
+  display: flex;
+  align-items: center;
+  background: #f5f7fa;
+  border-radius: 16px;
+  padding: 0 18px;
+  height: 56px;
+  margin-bottom: 22px;
+  position: relative;
+}
+
+.verify-code-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  color: #5a6a85;
+  outline: none;
+  height: 56px;
+  padding-right: 100px; /* 为验证码按钮留出空间 */
+}
+
+.get-code-link {
+  position: absolute;
+  right: 18px;
+  border: none;
+  background: transparent;
+  color: #3498db;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: 500;
+  padding: 8px 12px;
+  user-select: none;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+
+.get-code-link:active {
+  color: #3498db;
+}
+
+.get-code-link[disabled] {
+  color: #bfc4cc;
+  cursor: not-allowed;
+  background: none;
+}
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+  .verify-code-row {
+    padding: 0 12px;
+  }
+
+  .verify-code-input {
+    font-size: 16px;
+    padding-right: 90px;
+  }
+
+  .get-code-link {
+    font-size: 14px;
+    padding: 6px 8px;
+    right: 12px;
+  }
+}
+
+@media (max-width: 320px) {
+  .verify-code-input {
+    font-size: 14px;
+    padding-right: 80px;
+  }
+
+  .get-code-link {
+    font-size: 12px;
+    padding: 4px 6px;
+  }
+}
+
+.code-sent-tip {
+  display: flex;
+  align-items: center;
+  color: #ff6600;
+  font-size: 16px;
+  margin: 12px 0 24px 2px;
+  font-weight: 500;
+}
+
+.sent-icon {
+  margin-right: 4px;
 }
 </style>
 <!-- <template>

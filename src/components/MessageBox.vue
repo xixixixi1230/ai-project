@@ -7,7 +7,7 @@
         </div>
         <div class="message-box-text">{{ message }}</div>
       </div>
-      <div class="message-box-footer">
+      <div v-if="type !== 'success'" class="message-box-footer">
         <button @click="close" class="message-box-btn">确定</button>
       </div>
     </div>
@@ -40,6 +40,13 @@ export default {
       this.message = message
       this.type = type
       this.visible = true
+
+      // Auto close for success messages after 1.5 seconds
+      if (type === 'success') {
+        setTimeout(() => {
+          this.close()
+        }, 1500)
+      }
     },
     close() {
       this.visible = false

@@ -180,7 +180,8 @@ const handleRegister = async () => {
   if (hasErrors.value) return
 
   try {
-    const response = await fetch('http://101.42.141.72:7001/user/register/', {
+    // 发送注册请求 http://101.42.141.72:7001/user/register/
+    const response = await fetch('/user/register/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -6,10 +6,10 @@ COPY ./dist /usr/share/nginx/html
 
 # 复制自定义的 Nginx 配置文件（可选）
 COPY ./nginx.conf /etc/nginx/nginx.conf
-
+COPY ./i.nkugame.com_nginx /etc/nginx/i.nkugame.com_nginx
 
 # 暴露容器的 80 端口
-EXPOSE 80
+EXPOSE 80 443
 
 # 启动 Nginx 服务
 CMD ["nginx", "-g", "daemon off;"]

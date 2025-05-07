@@ -22,6 +22,12 @@ export default defineConfig({
         target: 'http://101.42.141.72:8080',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      '/user': {
+        target: 'http://101.42.141.72:7001/',
+        changeOrigin: true,
+        rewrite: (path) => path  // 不去掉任何部分，路径保持原样
+
       }
     }
 

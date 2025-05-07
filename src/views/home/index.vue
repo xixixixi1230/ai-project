@@ -85,6 +85,25 @@
 import { marked } from 'marked'
 import MessageBox from '@/components/MessageBox.vue'
 
+// // 创建自定义渲染器
+// const renderer = new marked.Renderer()
+
+// // 修改链接渲染规则，确保链接在新标签页打开
+// renderer.link = function (href, title, text) {
+//   console.log('Rendering link:', { href, title, text }) // 调试输出，检查传递的参数
+
+//   // 如果 href 是对象，取 href.href
+//   if (href && href.href) {
+//     href = href.href
+//   }
+
+//   // 如果 href 和 text 都有效
+//   if (href && text) {
+//     return `<a href="${href}" target="_blank" rel="noopener noreferrer" ${title ? `title="${title}"` : ''}>${text}</a>`
+//   }
+
+//   return '' // 如果 href 或 text 无效，返回空字符串
+// }
 export default {
   components: {
     MessageBox,
@@ -95,9 +114,16 @@ export default {
       inputMessage: '',
       reader: null,
       messages: [],
-      // apiUrl: 'http://101.42.141.72:8080/streamchat',
-      apiUrl: '/api/streamchat',
-      apiUrlconversion: 'http://101.42.141.72:8080/conversation',
+      //apiUrl: 'http://101.42.141.72:8080/streamchat',
+      //apiUrl: '/api/streamchat',
+      // apiUrl: 'http://backend:8080/streamchat',
+      apiUrl: '/streamchat',
+      // apiUrlconversion: 'http://101.42.141.72:8080/conversation',
+      //apiUrlconversion: '/api/conversation',
+      // apiUrlconversion: 'http://backend:8080/conversation',
+      apiUrlconversion: '/conversation',
+      apiUrlcancel: '/api/cancel',
+      // apiUrlcancel: 'http://backend:8080/cancel',
       isRequesting: false,
       isLoading: false, // 加载历史记录的状态
       showEmptyChatMessage: false, // 新增：控制空聊天提示的显示
@@ -178,7 +204,8 @@ export default {
           // 遍历每个会话
           data.data.forEach((conversation) => {
             // 遍历每个消息
-            conversation.message.forEach((item) => {
+            console.log('conversation:', conversation)
+            conversation.messages.forEach((item) => {
               if (item.content) {
                 // 仅在消息内容存在时才添加
                 chatHistory.push({
@@ -268,41 +295,48 @@ export default {
           }
 
           const chunk = decoder.decode(value, { stream: true })
+          console.log('chunk', chunk)
           buffer += chunk
-          try {
-            const jsonData = JSON.parse(buffer)
-            console.log('jsonData', jsonData)
-            if (jsonData.code === 500) {
-              // 处理错误响应
-              this.showMessage(jsonData.msg || '服务器错误，请稍后重试', 'error')
-              this.messages.pop() // 移除最后一条等待回复的消息
-              buffer = ''
-              this.isRequesting = false
-              return
-            }
+          console.log('buffer', buffer)
 
-            if (jsonData.type == 'id') {
-              this.userInfo.chatId = jsonData.chat_id
-              this.userInfo.conversationId = jsonData.conversation_id
-              localStorage.setItem('chatId', jsonData.chat_id)
-              localStorage.setItem('conversationId', jsonData.conversation_id)
-              buffer = ''
-              continue
-            } else if (jsonData.type == 'verbose') {
-              console.log('verbose', jsonData.verbose)
-              buffer = ''
-              continue
-            } else if (jsonData.type == 'text') {
-              mes += jsonData.content
-              this.messages.at(-1).content = marked(mes)
-              this.scrollToBottom()
-              buffer = ''
-              continue
-            } else {
-              console.log(buffer)
+          // 按行拆分（后端每条 JSON 后加了 \n）
+          let lines = buffer.split('\n')
+          buffer = lines.pop() // 最后一段可能是未完成的 JSON，留着下次拼接
+
+          for (let line of lines) {
+            // 清理字符串：去除两端空格，去掉末尾单个反斜杠
+            line = line.trim().replace(/\\$/, '')
+            if (!line) continue
+            if (!line.trim()) continue // 忽略空行
+
+            try {
+              const jsonData = JSON.parse(line)
+              console.log('jsonData', jsonData)
+
+              if (jsonData.code === 500) {
+                this.showMessage(jsonData.msg || '服务器错误，请稍后重试', 'error')
+                this.messages.pop()
+                this.isRequesting = false
+                return
+              }
+
+              if (jsonData.type === 'id') {
+                this.userInfo.chatId = jsonData.chat_id
+                this.userInfo.conversationId = jsonData.conversation_id
+                localStorage.setItem('chatId', jsonData.chat_id)
+                localStorage.setItem('conversationId', jsonData.conversation_id)
+              } else if (jsonData.type === 'verbose') {
+                console.log('verbose', jsonData.verbose)
+              } else if (jsonData.type === 'text') {
+                mes += jsonData.content
+                this.messages.at(-1).content = marked(mes)
+                this.scrollToBottom()
+              } else {
+                console.log('未知类型', jsonData)
+              }
+            } catch (e) {
+              console.error('JSON 解析失败：', line, e)
             }
-          } catch (e) {
-            continue
           }
           this.scrollToBottom()
         }
@@ -323,14 +357,14 @@ export default {
 
     async stopChat() {
       console.log('停止对话...')
-      const cancelApiUrl = 'http://101.42.141.72:8080/cancel' // 你的取消接口地址
+      // const cancelApiUrl = 'http://101.42.141.72:8080/cancel' // 你的取消接口地址
       const requestData = {
         chatId: this.userInfo.chatId,
         conversationId: this.userInfo.conversationId,
       }
 
       try {
-        const response = await fetch(cancelApiUrl, {
+        const response = await fetch(this.apiUrlcancel, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestData),
@@ -430,6 +464,7 @@ export default {
   display: flex;
   flex-direction: column;
   background-color: #ffffff;
+  position: relative;
 }
 
 .header {
@@ -465,7 +500,7 @@ export default {
 }
 
 .message {
-  padding: 0.5rem 1.5rem;
+  padding: 0.8rem 1.5rem 0.5rem;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -600,14 +635,14 @@ export default {
 }
 
 /* 当消息是机器人回复时，增加一点底部边距 */
-.message.bot {
+/* .message.bot {
   margin-bottom: 0.5rem;
-}
+} */
 
 /* 当消息是用户输入时，增加一点顶部边距 */
-.message.user {
-  margin-top: 0.5rem;
-}
+/* .message.user {
+  margin-top: 0.3rem;
+} */
 
 /* 输入区域样式 */
 .input-container {
@@ -786,8 +821,8 @@ export default {
   }
 
   .user-info {
-    width: calc(100% - 2rem);
     right: 1rem;
+    width: 280px;
   }
 }
 
@@ -806,9 +841,9 @@ export default {
 }
 
 .user-info {
-  position: absolute;
-  top: 60px;
-  right: 2rem;
+  position: fixed;
+  top: 70px;
+  right: calc((100% - 1200px) / 2 + 2rem);
   width: 280px;
   background: white;
   border-radius: 0.75rem;

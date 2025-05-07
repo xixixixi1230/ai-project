@@ -200,7 +200,7 @@ export default {
       },
       fileList: [],
       currentPage: 1,
-      pageSize: 10,
+      pageSize: 8,
       apiUrl: 'http://101.42.141.72:8080',
       isDragging: false,
       jumpPage: 1,
@@ -538,7 +538,7 @@ export default {
   overflow: auto;
   max-width: 1200px;
   margin: 0 auto;
-  height: 100vh;
+  height: auto;
   background-color: #f5f7fa;
   display: flex;
   flex-direction: column;
@@ -588,12 +588,13 @@ export default {
   flex-direction: column;
   gap: 24px;
   flex: 1;
-  overflow: auto;
+  overflow: visible;
 }
 
-.upload-section,
-.file-list-section {
+.upload-section {
   background: white;
+  height: auto;
+  min-height: 100px;
   border-radius: 10px;
   padding: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
@@ -717,7 +718,8 @@ export default {
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-height: 0;
+  height: auto;
+  /* min-height: 500px !important; */
 }
 
 .table-container {
@@ -726,6 +728,7 @@ export default {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  min-height: 500px !important;
 }
 
 .file-table {
